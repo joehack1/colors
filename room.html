@@ -1,0 +1,348 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gaming Room with RGB Strip Lights</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #000;
+            font-family: 'Arial', sans-serif;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            color: #fff;
+            font-size: 14px;
+        }
+        button {
+            background: #6366f1;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 12px;
+        }
+        button:hover {
+            background: #4f46e5;
+        }
+        .control-group {
+            margin: 10px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="range"] {
+            width: 150px;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="controls">
+        <h3 style="margin-top: 0;">Gaming Room Controls</h3>
+        <div class="control-group">
+            <button onclick="toggleAnimation()">Toggle RGB Animation</button>
+            <button onclick="changePattern()">Change Pattern</button>
+        </div>
+        <div class="control-group">
+            <label>Speed: <span id="speedVal">1.0</span></label>
+            <input type="range" min="0.1" max="3" step="0.1" value="1" oninput="updateSpeed(this.value)">
+        </div>
+        <div class="control-group">
+            <label>Brightness: <span id="brightVal">1.0</span></label>
+            <input type="range" min="0.1" max="2" step="0.1" value="1" oninput="updateBrightness(this.value)">
+        </div>
+        <p style="font-size: 11px; margin-top: 15px; opacity: 0.7;">
+            Drag to rotate view | Scroll to zoom
+        </p>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+        let stripLights = [];
+        let animationEnabled = true;
+        let currentPattern = 0;
+        let speed = 1.0;
+        let brightness = 1.0;
+        let mouseX = 0, mouseY = 0;
+        let targetRotationX = 0, targetRotationY = 0;
+        let isDragging = false;
+        let previousMouseX = 0;
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a0a);
+            scene.fog = new THREE.Fog(0x0a0a0a, 10, 50);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, 8);
+            camera.lookAt(0, 2, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+
+            // Room
+            createRoom();
+            createFurniture();
+            createCeilingStripLights();
+            
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0x404040, 0.5);
+            scene.add(ambientLight);
+
+            // Events
+            window.addEventListener('resize', onWindowResize);
+            document.addEventListener('mousemove', onMouseMove);
+            document.addEventListener('mousedown', () => isDragging = true);
+            document.addEventListener('mouseup', () => isDragging = false);
+
+            animate();
+        }
+
+        function createRoom() {
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(15, 15);
+            const floorMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a1a,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            scene.add(floor);
+
+            // Walls
+            const wallMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x2a2a2a,
+                roughness: 0.9
+            });
+
+            // Back wall
+            const backWall = new THREE.Mesh(new THREE.PlaneGeometry(15, 8), wallMaterial);
+            backWall.position.set(0, 4, -7.5);
+            scene.add(backWall);
+
+            // Side walls
+            const leftWall = new THREE.Mesh(new THREE.PlaneGeometry(15, 8), wallMaterial);
+            leftWall.position.set(-7.5, 4, 0);
+            leftWall.rotation.y = Math.PI / 2;
+            scene.add(leftWall);
+
+            const rightWall = new THREE.Mesh(new THREE.PlaneGeometry(15, 8), wallMaterial);
+            rightWall.position.set(7.5, 4, 0);
+            rightWall.rotation.y = -Math.PI / 2;
+            scene.add(rightWall);
+
+            // Ceiling
+            const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(15, 15), wallMaterial);
+            ceiling.rotation.x = Math.PI / 2;
+            ceiling.position.y = 8;
+            scene.add(ceiling);
+        }
+
+        function createFurniture() {
+            // Gaming desk
+            const deskMaterial = new THREE.MeshStandardMaterial({ color: 0x1a1a1a });
+            const desk = new THREE.Mesh(new THREE.BoxGeometry(3, 0.1, 1.5), deskMaterial);
+            desk.position.set(0, 1, -5);
+            scene.add(desk);
+
+            // Desk legs
+            for (let i = 0; i < 4; i++) {
+                const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1), deskMaterial);
+                leg.position.set(
+                    i % 2 === 0 ? -1.4 : 1.4,
+                    0.5,
+                    i < 2 ? -5.7 : -4.3
+                );
+                scene.add(leg);
+            }
+
+            // Monitor
+            const monitor = new THREE.Mesh(
+                new THREE.BoxGeometry(1.5, 0.9, 0.05),
+                new THREE.MeshStandardMaterial({ color: 0x0a0a0a })
+            );
+            monitor.position.set(0, 1.6, -5.2);
+            scene.add(monitor);
+
+            // Monitor screen (emissive)
+            const screen = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.4, 0.8),
+                new THREE.MeshBasicMaterial({ color: 0x00ffff })
+            );
+            screen.position.set(0, 1.6, -5.17);
+            scene.add(screen);
+
+            // Gaming chair
+            const chairSeat = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 0.1, 0.8),
+                new THREE.MeshStandardMaterial({ color: 0x8b0000 })
+            );
+            chairSeat.position.set(0, 0.7, -3);
+            scene.add(chairSeat);
+
+            const chairBack = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, 1, 0.1),
+                new THREE.MeshStandardMaterial({ color: 0x8b0000 })
+            );
+            chairBack.position.set(0, 1.2, -3.35);
+            scene.add(chairBack);
+        }
+
+        function createCeilingStripLights() {
+            // Create strip lights around ceiling perimeter
+            // Using fewer segments to avoid shader uniform limits
+            const segments = 40; // Reduced from 100
+            const paths = [
+                { start: [-6, 7.9, -6], end: [6, 7.9, -6] },
+                { start: [6, 7.9, -6], end: [6, 7.9, 6] },
+                { start: [6, 7.9, 6], end: [-6, 7.9, 6] },
+                { start: [-6, 7.9, 6], end: [-6, 7.9, -6] }
+            ];
+
+            paths.forEach((path, pathIndex) => {
+                for (let i = 0; i < segments; i++) {
+                    const t = i / segments;
+                    const x = path.start[0] + (path.end[0] - path.start[0]) * t;
+                    const y = path.start[1];
+                    const z = path.start[2] + (path.end[2] - path.start[2]) * t;
+
+                    // Create glowing LED bulb
+                    const bulbGeometry = new THREE.SphereGeometry(0.08, 8, 8);
+                    const bulbMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xff0000,
+                        transparent: true,
+                        opacity: 0.9
+                    });
+                    const bulb = new THREE.Mesh(bulbGeometry, bulbMaterial);
+                    bulb.position.set(x, y, z);
+                    scene.add(bulb);
+
+                    // Create glow effect around bulb
+                    const glowGeometry = new THREE.SphereGeometry(0.15, 8, 8);
+                    const glowMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0xff0000,
+                        transparent: true,
+                        opacity: 0.3
+                    });
+                    const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+                    glow.position.set(x, y, z);
+                    scene.add(glow);
+
+                    stripLights.push({
+                        bulb: bulb,
+                        glow: glow,
+                        offset: (pathIndex * segments + i) / (segments * paths.length),
+                        pathIndex: pathIndex
+                    });
+                }
+            });
+        }
+
+        function updateStripLights(time) {
+            if (!animationEnabled) return;
+
+            stripLights.forEach((strip, i) => {
+                let hue;
+                
+                switch(currentPattern) {
+                    case 0: // Rainbow wave
+                        hue = (strip.offset + time * speed * 0.1) % 1;
+                        break;
+                    case 1: // Chase effect
+                        const wave = Math.sin((strip.offset * 10 - time * speed) * Math.PI * 2);
+                        hue = wave > 0 ? 0.6 : 0;
+                        break;
+                    case 2: // Pulse all
+                        const pulse = (Math.sin(time * speed) + 1) / 2;
+                        hue = pulse * 0.8;
+                        break;
+                    case 3: // Section colors
+                        hue = strip.pathIndex / 4;
+                        break;
+                    default:
+                        hue = strip.offset;
+                }
+
+                const color = new THREE.Color().setHSL(hue, 1, 0.5 * brightness);
+                strip.bulb.material.color = color;
+                strip.glow.material.color = color;
+                strip.glow.material.opacity = 0.3 * brightness;
+            });
+        }
+
+        function onMouseMove(event) {
+            if (isDragging) {
+                const deltaX = event.clientX - previousMouseX;
+                targetRotationY += deltaX * 0.005;
+            }
+            previousMouseX = event.clientX;
+
+            mouseX = (event.clientX / window.innerWidth) * 2 - 1;
+            mouseY = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const time = Date.now() * 0.001;
+            updateStripLights(time);
+
+            // Smooth camera rotation
+            const radius = 8;
+            camera.position.x = Math.sin(targetRotationY) * radius;
+            camera.position.z = Math.cos(targetRotationY) * radius;
+            camera.position.y = 2 + mouseY * 2;
+            camera.lookAt(0, 2, 0);
+
+            renderer.render(scene, camera);
+        }
+
+        function toggleAnimation() {
+            animationEnabled = !animationEnabled;
+        }
+
+        function changePattern() {
+            currentPattern = (currentPattern + 1) % 4;
+        }
+
+        function updateSpeed(value) {
+            speed = parseFloat(value);
+            document.getElementById('speedVal').textContent = value;
+        }
+
+        function updateBrightness(value) {
+            brightness = parseFloat(value);
+            document.getElementById('brightVal').textContent = value;
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+    </script>
+</body>
+</html>
