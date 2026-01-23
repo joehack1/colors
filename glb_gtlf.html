@@ -1,0 +1,1917 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced GLB/GLTF Viewer | Black Scene</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        
+        body {
+            background: #000;
+            color: #e6e6e6;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+        
+        #viewer-container.grabbing {
+            cursor: grabbing;
+        }
+        
+        /* Ultra-Compact Controls Panel */
+        .controls-panel {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 260px;
+            background: rgba(10, 10, 15, 0.92);
+            backdrop-filter: blur(12px);
+            border-radius: 8px;
+            padding: 10px;
+            box-shadow: 0 5px 20px rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(100, 150, 255, 0.15);
+            max-height: calc(100vh - 24px);
+            overflow-y: auto;
+            transition: all 0.25s ease;
+            font-size: 0.75rem;
+        }
+        
+        .controls-panel:hover {
+            background: rgba(15, 15, 25, 0.95);
+            border-color: rgba(100, 150, 255, 0.25);
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.2);
+        }
+        
+        .panel-title {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #64a0ff;
+            letter-spacing: 0.5px;
+        }
+        
+        .collapse-btn {
+            background: rgba(100, 150, 255, 0.15);
+            border: 1px solid rgba(100, 150, 255, 0.25);
+            color: #64a0ff;
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .section {
+            margin-bottom: 10px;
+            padding: 8px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 6px;
+            border-left: 2px solid #64a0ff;
+        }
+        
+        .section-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 6px;
+            color: #8ab4f8;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            letter-spacing: 0.3px;
+        }
+        
+        .drop-area {
+            border: 1.5px dashed rgba(100, 150, 255, 0.4);
+            border-radius: 5px;
+            padding: 12px 10px;
+            text-align: center;
+            margin-bottom: 8px;
+            transition: all 0.25s ease;
+            background: rgba(100, 150, 255, 0.04);
+        }
+        
+        .drop-area:hover {
+            background: rgba(100, 150, 255, 0.08);
+            border-color: #64a0ff;
+        }
+        
+        .file-types {
+            font-size: 0.7rem;
+            opacity: 0.7;
+            margin-top: 5px;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #64a0ff 0%, #4a7fff 100%);
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 3px 8px rgba(100, 160, 255, 0.3);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.07);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.12);
+        }
+        
+        .btn-sm {
+            padding: 4px 8px;
+            font-size: 0.7rem;
+        }
+        
+        .btn-xs {
+            padding: 2px 5px;
+            font-size: 0.65rem;
+            min-width: 22px;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 5px;
+        }
+        
+        .compact-slider {
+            margin: 5px 0;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 2px;
+            font-size: 0.7rem;
+            opacity: 0.85;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 3px;
+            border-radius: 1.5px;
+            background: rgba(255, 255, 255, 0.08);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 11px;
+            height: 11px;
+            border-radius: 50%;
+            background: #64a0ff;
+            cursor: pointer;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+        }
+        
+        /* Animation Controls */
+        .animation-controls {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 5px;
+            margin-top: 6px;
+        }
+        
+        .animation-select {
+            grid-column: 1 / -1;
+            width: 100%;
+            padding: 4px 6px;
+            border-radius: 4px;
+            background: rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            color: white;
+            font-size: 0.7rem;
+        }
+        
+        /* Info Display - Even Smaller */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 5px;
+            font-size: 0.7rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+        
+        .info-label {
+            opacity: 0.6;
+            font-size: 0.65rem;
+        }
+        
+        .info-value {
+            color: #64a0ff;
+            font-weight: 500;
+            font-size: 0.7rem;
+        }
+        
+        /* Bones Controls */
+        .bones-controls {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        
+        .bones-list {
+            max-height: 90px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.25);
+            border-radius: 4px;
+            padding: 5px;
+            margin-top: 5px;
+            font-size: 0.7rem;
+        }
+        
+        .bone-item {
+            padding: 2px 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .bone-item:hover {
+            background: rgba(100, 160, 255, 0.1);
+        }
+        
+        .bone-item.selected {
+            background: rgba(100, 160, 255, 0.2);
+            border-left: 2px solid #64a0ff;
+        }
+        
+        .bone-name {
+            color: #8ab4f8;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 100px;
+        }
+        
+        /* Bone Transform Controls */
+        .bone-transform {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid rgba(255, 255, 255, 0.04);
+        }
+        
+        .transform-controls {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 4px;
+            margin-top: 5px;
+        }
+        
+        .axis-control {
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+            align-items: center;
+        }
+        
+        .axis-label {
+            font-size: 0.65rem;
+            color: #64a0ff;
+        }
+        
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 2px;
+            background: rgba(255, 255, 255, 0.06);
+            border-radius: 1px;
+            margin-top: 5px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #64a0ff, #8ab4f8);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        /* Status Indicator */
+        .status {
+            position: absolute;
+            bottom: 12px;
+            left: 12px;
+            background: rgba(10, 10, 15, 0.9);
+            padding: 6px 10px;
+            border-radius: 5px;
+            font-size: 0.7rem;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            max-width: 180px;
+        }
+        
+        .status-indicator {
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+            flex-shrink: 0;
+        }
+        
+        .status-indicator.loading {
+            background: #FF9800;
+        }
+        
+        .status-indicator.error {
+            background: #F44336;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Hide file input */
+        #file-input {
+            display: none;
+        }
+        
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(10, 10, 15, 0.97);
+            padding: 18px 22px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 150, 255, 0.2);
+            z-index: 1000;
+            min-width: 180px;
+        }
+        
+        .spinner {
+            width: 25px;
+            height: 25px;
+            border: 2px solid rgba(100, 160, 255, 0.2);
+            border-top: 2px solid #64a0ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Scale Controls */
+        .scale-controls {
+            display: grid;
+            grid-template-columns: 1fr auto;
+            gap: 6px;
+            margin-top: 6px;
+            align-items: center;
+        }
+        
+        .scale-value {
+            font-size: 0.7rem;
+            color: #64a0ff;
+            min-width: 35px;
+            text-align: right;
+        }
+        
+        /* Scrollbar styling */
+        .controls-panel::-webkit-scrollbar {
+            width: 3px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 1.5px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-thumb {
+            background: rgba(100, 160, 255, 0.3);
+            border-radius: 1.5px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 160, 255, 0.5);
+        }
+        
+        /* Model Info Header */
+        .model-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 6px;
+        }
+        
+        .model-header-title {
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: #8ab4f8;
+        }
+        
+        .model-header-badge {
+            background: rgba(100, 160, 255, 0.15);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.6rem;
+            color: #64a0ff;
+        }
+        
+        /* Format Badge */
+        .format-badge {
+            position: absolute;
+            top: 12px;
+            left: 12px;
+            background: rgba(10, 10, 15, 0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            color: #8ab4f8;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            z-index: 10;
+        }
+        
+        /* Texture Warning */
+        .texture-warning {
+            background: rgba(255, 152, 0, 0.1);
+            border-left: 2px solid #FF9800;
+            padding: 6px;
+            margin-top: 6px;
+            border-radius: 3px;
+            font-size: 0.65rem;
+            color: #FF9800;
+        }
+        
+        /* Texture Management */
+        .texture-controls {
+            margin-top: 8px;
+            padding: 6px;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 4px;
+        }
+        
+        .texture-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 3px 0;
+            font-size: 0.65rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        
+        .texture-item:last-child {
+            border-bottom: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="viewer-container"></div>
+        
+        <!-- Format Badge -->
+        <div class="format-badge hidden" id="format-badge">GLB</div>
+        
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <div id="loading-text">LOADING...</div>
+            <div id="loading-details" style="font-size: 0.65rem; opacity: 0.7;"></div>
+        </div>
+        
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <div class="panel-header">
+                <div class="panel-title">3D VIEWER</div>
+                <button class="collapse-btn" id="collapse-btn" title="Collapse panel">−</button>
+            </div>
+            
+            <!-- File Upload -->
+            <div class="section">
+                <div class="section-title">📁 FILE</div>
+                <div class="drop-area" id="drop-area">
+                    <p style="font-size: 0.7rem; margin-bottom: 6px; opacity: 0.8;">DRAG & DROP</p>
+                    <button class="btn" id="file-input-btn" title="Load GLB/GLTF file">
+                        📂 OPEN
+                    </button>
+                    <input type="file" id="file-input" accept=".glb,.gltf,.gltf+bin">
+                    <div class="file-types">GLB • GLTF • GLTF+BIN</div>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm sample-model" data-model="box" title="Cube sample">BOX</button>
+                    <button class="btn btn-secondary btn-sm sample-model" data-model="sphere" title="Sphere sample">SPHERE</button>
+                    <button class="btn btn-secondary btn-sm sample-model" data-model="armature" title="Armature sample">RIG</button>
+                </div>
+            </div>
+            
+            <!-- Model Info -->
+            <div class="section">
+                <div class="model-header">
+                    <div class="model-header-title">📊 INFO</div>
+                    <div class="model-header-badge" id="model-badge">SAMPLE</div>
+                </div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">NAME</span>
+                        <span class="info-value" id="model-name">Box</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">FORMAT</span>
+                        <span class="info-value" id="model-format">GLB</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">VERTS</span>
+                        <span class="info-value" id="vertex-count">24</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">TRIS</span>
+                        <span class="info-value" id="triangle-count">12</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">RIGGED</span>
+                        <span class="info-value" id="rigged-status">NO</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">BONES</span>
+                        <span class="info-value" id="bone-count">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">TEXTURES</span>
+                        <span class="info-value" id="texture-count">0</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">ANIMS</span>
+                        <span class="info-value" id="animation-count">0</span>
+                    </div>
+                </div>
+                
+                <!-- Texture Warning (if any) -->
+                <div id="texture-warning" class="hidden">
+                    <div class="texture-warning">
+                        ⚠️ Some textures may not load due to CORS restrictions
+                    </div>
+                </div>
+                
+                <!-- Bones Section -->
+                <div id="bones-container" class="hidden">
+                    <div class="bones-controls">
+                        <div style="font-size: 0.7rem; color: #8ab4f8; margin-bottom: 5px;">BONES:</div>
+                        <div class="bones-list" id="bones-list"></div>
+                        <div class="btn-group" style="margin-top: 6px;">
+                            <button class="btn btn-secondary btn-xs" id="show-bones-btn" title="Show bone visualization">👁️</button>
+                            <button class="btn btn-secondary btn-xs" id="select-bone-btn" title="Select first bone">SEL</button>
+                            <button class="btn btn-secondary btn-xs" id="reset-bones-btn" title="Reset bone transforms">RST</button>
+                        </div>
+                    </div>
+                    
+                    <!-- Bone Transform Controls -->
+                    <div class="bone-transform" id="bone-transform-controls">
+                        <div style="font-size: 0.7rem; color: #8ab4f8; margin-bottom: 5px;">TRANSFORM:</div>
+                        <div class="transform-controls">
+                            <div class="axis-control">
+                                <div class="axis-label">X</div>
+                                <input type="range" class="bone-slider" data-axis="x" min="-180" max="180" value="0" style="width: 55px;">
+                            </div>
+                            <div class="axis-control">
+                                <div class="axis-label">Y</div>
+                                <input type="range" class="bone-slider" data-axis="y" min="-180" max="180" value="0" style="width: 55px;">
+                            </div>
+                            <div class="axis-control">
+                                <div class="axis-label">Z</div>
+                                <input type="range" class="bone-slider" data-axis="z" min="-180" max="180" value="0" style="width: 55px;">
+                            </div>
+                        </div>
+                        <div class="btn-group" style="margin-top: 5px;">
+                            <button class="btn btn-secondary btn-xs" id="rotate-bone-btn" title="Rotate selected bone">ROT</button>
+                            <button class="btn btn-secondary btn-xs" id="reset-transform-btn" title="Reset transform">RST</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Scale Controls -->
+            <div class="section">
+                <div class="section-title">⚖️ SCALE</div>
+                <div class="scale-controls">
+                    <input type="range" id="model-scale" min="0.01" max="20" step="0.1" value="1">
+                    <span class="scale-value" id="scale-value">1.0x</span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm" id="auto-scale-btn" title="Auto-scale to fit view">FIT</button>
+                    <button class="btn btn-secondary btn-sm" id="reset-scale-btn" title="Reset to original scale">RST</button>
+                </div>
+            </div>
+            
+            <!-- Animation Controls -->
+            <div class="section">
+                <div class="section-title">🎬 ANIMATIONS</div>
+                <select class="animation-select" id="animation-select" disabled>
+                    <option value="">NO ANIMS</option>
+                </select>
+                <div class="animation-controls">
+                    <button class="btn btn-secondary btn-xs" id="play-btn" disabled title="Play animation">▶</button>
+                    <button class="btn btn-secondary btn-xs" id="pause-btn" disabled title="Pause animation">⏸</button>
+                    <button class="btn btn-secondary btn-xs" id="stop-btn" disabled title="Stop animation">⏹</button>
+                    <button class="btn btn-secondary btn-xs" id="loop-toggle" disabled title="Toggle loop">🔁</button>
+                </div>
+                <div class="compact-slider">
+                    <div class="slider-label">
+                        <span>SPEED</span>
+                        <span id="anim-speed-value">1.0x</span>
+                    </div>
+                    <input type="range" id="anim-speed" min="0.1" max="3" step="0.1" value="1">
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="animation-progress"></div>
+                </div>
+            </div>
+            
+            <!-- View Controls -->
+            <div class="section">
+                <div class="section-title">👁️ VIEW</div>
+                <div class="compact-slider">
+                    <div class="slider-label">
+                        <span>ROT SPD</span>
+                        <span id="rotation-value">0.5</span>
+                    </div>
+                    <input type="range" id="rotation-speed" min="0" max="2" step="0.1" value="0.5">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm" id="auto-rotate" title="Auto-rotate model">🌀</button>
+                    <button class="btn btn-secondary btn-sm" id="wireframe-btn" title="Toggle wireframe">📐</button>
+                    <button class="btn btn-secondary btn-sm" id="reset-view" title="Reset camera">🔄</button>
+                </div>
+            </div>
+            
+            <!-- Lighting -->
+            <div class="section">
+                <div class="section-title">💡 LIGHTS</div>
+                <div class="compact-slider">
+                    <div class="slider-label">
+                        <span>INTENSITY</span>
+                        <span id="light-value">1.0</span>
+                    </div>
+                    <input type="range" id="light-intensity" min="0" max="2" step="0.1" value="1">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm" id="lights-toggle" title="Toggle lights">💡</button>
+                    <button class="btn btn-secondary btn-sm" id="shadows-toggle" title="Toggle shadows">🌓</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status Indicator -->
+        <div class="status">
+            <div class="status-indicator" id="status-indicator"></div>
+            <span id="status-text">READY</span>
+        </div>
+    </div>
+
+    <script>
+        // Main Three.js variables
+        let scene, camera, renderer, controls, mixer;
+        let model = null;
+        let animations = [];
+        let currentAnimation = null;
+        let clock = new THREE.Clock();
+        let floor = null;
+        let skeletonHelper = null;
+        let selectedBone = null;
+        let originalScale = 1;
+        let dracoLoader = null;
+        let textureCount = 0;
+        let currentModelFormat = 'GLB';
+        
+        // Animation state
+        let isPlaying = false;
+        let isLooping = false;
+        let animationSpeed = 1.0;
+        
+        // DOM elements
+        const viewerContainer = document.getElementById('viewer-container');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const loadingDetails = document.getElementById('loading-details');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        const formatBadge = document.getElementById('format-badge');
+        const textureWarning = document.getElementById('texture-warning');
+        
+        // Control elements
+        const fileInput = document.getElementById('file-input');
+        const fileInputBtn = document.getElementById('file-input-btn');
+        const dropArea = document.getElementById('drop-area');
+        const collapseBtn = document.getElementById('collapse-btn');
+        
+        // Scale controls
+        const modelScaleSlider = document.getElementById('model-scale');
+        const scaleValue = document.getElementById('scale-value');
+        const autoScaleBtn = document.getElementById('auto-scale-btn');
+        const resetScaleBtn = document.getElementById('reset-scale-btn');
+        
+        // Animation controls
+        const animationSelect = document.getElementById('animation-select');
+        const playBtn = document.getElementById('play-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const loopToggle = document.getElementById('loop-toggle');
+        const animSpeedSlider = document.getElementById('anim-speed');
+        const animSpeedValue = document.getElementById('anim-speed-value');
+        const animationProgress = document.getElementById('animation-progress');
+        
+        // View controls
+        const rotationSpeedSlider = document.getElementById('rotation-speed');
+        const rotationValue = document.getElementById('rotation-value');
+        const autoRotateBtn = document.getElementById('auto-rotate');
+        const wireframeBtn = document.getElementById('wireframe-btn');
+        const resetViewBtn = document.getElementById('reset-view');
+        
+        // Lighting controls
+        const lightIntensitySlider = document.getElementById('light-intensity');
+        const lightValue = document.getElementById('light-value');
+        const lightsToggleBtn = document.getElementById('lights-toggle');
+        const shadowsToggleBtn = document.getElementById('shadows-toggle');
+        
+        // Model info displays
+        const modelNameDisplay = document.getElementById('model-name');
+        const modelFormatDisplay = document.getElementById('model-format');
+        const vertexCountDisplay = document.getElementById('vertex-count');
+        const triangleCountDisplay = document.getElementById('triangle-count');
+        const riggedStatusDisplay = document.getElementById('rigged-status');
+        const boneCountDisplay = document.getElementById('bone-count');
+        const textureCountDisplay = document.getElementById('texture-count');
+        const animationCountDisplay = document.getElementById('animation-count');
+        const bonesContainer = document.getElementById('bones-container');
+        const bonesList = document.getElementById('bones-list');
+        const modelBadge = document.getElementById('model-badge');
+        
+        // Bone controls
+        const showBonesBtn = document.getElementById('show-bones-btn');
+        const selectBoneBtn = document.getElementById('select-bone-btn');
+        const resetBonesBtn = document.getElementById('reset-bones-btn');
+        const boneSliders = document.querySelectorAll('.bone-slider');
+        const rotateBoneBtn = document.getElementById('rotate-bone-btn');
+        const resetTransformBtn = document.getElementById('reset-transform-btn');
+        
+        // Initialize the 3D environment
+        function init() {
+            // Create scene with pure black background
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x000000);
+            
+            // Create camera with adjusted near/far planes for large models
+            camera = new THREE.PerspectiveCamera(45, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.001, 10000);
+            camera.position.set(6, 4, 8);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ 
+                antialias: true, 
+                alpha: true,
+                logarithmicDepthBuffer: true // Better depth handling for large scenes
+            });
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            viewerContainer.appendChild(renderer.domElement);
+            
+            // Add orbit controls with adjusted min/max distance for large models
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 0.01;
+            controls.maxDistance = 5000;
+            controls.maxPolarAngle = Math.PI;
+            
+            // Initialize Draco loader for compressed GLTF files
+            dracoLoader = new THREE.DRACOLoader();
+            dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
+            
+            // Add floor
+            createFloor();
+            
+            // Add lighting
+            setupLighting();
+            
+            // Load initial sample model
+            loadSampleModel('box');
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Start animation loop
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+            
+            // Update status
+            updateStatus('READY', 'ready');
+        }
+        
+        // Create floor grid
+        function createFloor() {
+            // Create a large dark floor grid
+            const gridSize = 200;
+            const gridDivisions = 100;
+            const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x111111, 0x111111);
+            gridHelper.material.opacity = 0.1;
+            gridHelper.material.transparent = true;
+            gridHelper.position.y = -5;
+            scene.add(gridHelper);
+            
+            // Create a subtle ground plane for shadows
+            const groundGeometry = new THREE.PlaneGeometry(gridSize, gridSize);
+            const groundMaterial = new THREE.ShadowMaterial({ 
+                opacity: 0.15,
+                color: 0x000000
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -5;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            
+            floor = ground;
+        }
+        
+        // Setup lighting
+        function setupLighting() {
+            // Ambient light - very subtle
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+            scene.add(ambientLight);
+            
+            // Main directional light
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(10, 30, 15);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.1;
+            directionalLight.shadow.camera.far = 500;
+            directionalLight.shadow.camera.left = -100;
+            directionalLight.shadow.camera.right = 100;
+            directionalLight.shadow.camera.top = 100;
+            directionalLight.shadow.camera.bottom = -100;
+            scene.add(directionalLight);
+            
+            // Fill light from opposite side
+            const fillLight = new THREE.DirectionalLight(0x4466ff, 0.2);
+            fillLight.position.set(-10, 10, -15);
+            scene.add(fillLight);
+            
+            // Add rim light for better definition
+            const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
+            rimLight.position.set(0, 20, -20);
+            scene.add(rimLight);
+        }
+        
+        // Set up all event listeners
+        function setupEventListeners() {
+            // File input button
+            fileInputBtn.addEventListener('click', () => fileInput.click());
+            
+            // File input change
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Drop area events
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.style.borderColor = '#64a0ff';
+                dropArea.style.background = 'rgba(100, 160, 255, 0.08)';
+            });
+            
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.style.borderColor = 'rgba(100, 150, 255, 0.4)';
+                dropArea.style.background = 'rgba(100, 150, 255, 0.04)';
+            });
+            
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.style.borderColor = 'rgba(100, 150, 255, 0.4)';
+                dropArea.style.background = 'rgba(100, 150, 255, 0.04)';
+                
+                if (e.dataTransfer.files.length) {
+                    handleFileSelect({ target: { files: e.dataTransfer.files } });
+                }
+            });
+            
+            // Collapse button
+            collapseBtn.addEventListener('click', () => {
+                const panel = document.querySelector('.controls-panel');
+                panel.classList.toggle('collapsed');
+                collapseBtn.textContent = panel.classList.contains('collapsed') ? '+' : '−';
+                collapseBtn.title = panel.classList.contains('collapsed') ? 'Expand panel' : 'Collapse panel';
+            });
+            
+            // Sample models
+            document.querySelectorAll('.sample-model').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const modelType = btn.getAttribute('data-model');
+                    loadSampleModel(modelType);
+                });
+            });
+            
+            // Scale controls
+            modelScaleSlider.addEventListener('input', updateModelScale);
+            autoScaleBtn.addEventListener('click', autoScaleModel);
+            resetScaleBtn.addEventListener('click', resetModelScale);
+            
+            // Animation controls
+            playBtn.addEventListener('click', playAnimation);
+            pauseBtn.addEventListener('click', pauseAnimation);
+            stopBtn.addEventListener('click', stopAnimation);
+            loopToggle.addEventListener('click', toggleLoop);
+            animSpeedSlider.addEventListener('input', updateAnimationSpeed);
+            animationSelect.addEventListener('change', selectAnimation);
+            
+            // View controls
+            rotationSpeedSlider.addEventListener('input', (e) => {
+                rotationValue.textContent = parseFloat(e.target.value).toFixed(1);
+            });
+            
+            autoRotateBtn.addEventListener('click', () => {
+                const isAuto = autoRotateBtn.textContent === '🌀';
+                autoRotateBtn.textContent = isAuto ? '🌀' : '🌀';
+                autoRotateBtn.title = isAuto ? 'Enable auto-rotate' : 'Disable auto-rotate';
+                controls.autoRotate = !isAuto;
+            });
+            
+            wireframeBtn.addEventListener('click', toggleWireframe);
+            resetViewBtn.addEventListener('click', resetView);
+            
+            // Lighting controls
+            lightIntensitySlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                lightValue.textContent = value.toFixed(1);
+                updateLightIntensity(value);
+            });
+            
+            lightsToggleBtn.addEventListener('click', toggleLights);
+            shadowsToggleBtn.addEventListener('click', toggleShadows);
+            
+            // Bone controls
+            showBonesBtn.addEventListener('click', toggleBoneVisualization);
+            selectBoneBtn.addEventListener('click', selectFirstBone);
+            resetBonesBtn.addEventListener('click', resetAllBones);
+            rotateBoneBtn.addEventListener('click', applyBoneRotation);
+            resetTransformBtn.addEventListener('click', resetBoneTransform);
+            
+            boneSliders.forEach(slider => {
+                slider.addEventListener('input', updateBoneSliderValue);
+            });
+            
+            // Mouse cursor styles
+            renderer.domElement.addEventListener('mousedown', () => {
+                viewerContainer.classList.add('grabbing');
+            });
+            
+            renderer.domElement.addEventListener('mouseup', () => {
+                viewerContainer.classList.remove('grabbing');
+            });
+        }
+        
+        // Handle file selection for both GLB and GLTF
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Check if it's a supported file
+            const fileName = file.name.toLowerCase();
+            const isGLB = fileName.endsWith('.glb');
+            const isGLTF = fileName.endsWith('.gltf');
+            const isGLTFBin = fileName.endsWith('.gltf+bin');
+            
+            if (!isGLB && !isGLTF && !isGLTFBin) {
+                updateStatus('ERROR: NOT GLB/GLTF', 'error');
+                setTimeout(() => updateStatus('READY', 'ready'), 2000);
+                return;
+            }
+            
+            // Show loading overlay
+            loadingOverlay.classList.remove('hidden');
+            loadingText.textContent = `LOADING ${file.name}`;
+            loadingDetails.textContent = isGLB ? 'GLB format' : 'GLTF format';
+            updateStatus('LOADING...', 'loading');
+            
+            // Update format badge
+            currentModelFormat = isGLB ? 'GLB' : 'GLTF';
+            modelFormatDisplay.textContent = currentModelFormat;
+            formatBadge.textContent = currentModelFormat;
+            formatBadge.classList.remove('hidden');
+            
+            // Reset texture warning
+            textureWarning.classList.add('hidden');
+            
+            // Create loader with Draco support
+            const loader = new THREE.GLTFLoader();
+            if (dracoLoader) {
+                loader.setDRACOLoader(dracoLoader);
+            }
+            
+            // Load the file based on type
+            if (isGLB) {
+                loadGLBFile(file, loader);
+            } else {
+                loadGLTFFile(file, loader);
+            }
+        }
+        
+        // Load GLB file (binary format)
+        function loadGLBFile(file, loader) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const arrayBuffer = e.target.result;
+                
+                loader.parse(
+                    arrayBuffer,
+                    '',
+                    (gltf) => {
+                        handleLoadedModel(gltf, file.name);
+                    },
+                    (error) => {
+                        console.error('Error parsing GLB:', error);
+                        updateStatus('GLB PARSE ERROR', 'error');
+                        loadingOverlay.classList.add('hidden');
+                        setTimeout(() => updateStatus('READY', 'ready'), 3000);
+                    }
+                );
+            };
+            
+            reader.onerror = function(error) {
+                console.error('Error reading file:', error);
+                updateStatus('FILE READ ERROR', 'error');
+                loadingOverlay.classList.add('hidden');
+                setTimeout(() => updateStatus('READY', 'ready'), 3000);
+            };
+            
+            reader.readAsArrayBuffer(file);
+        }
+        
+        // Load GLTF file (JSON + separate resources)
+        function loadGLTFFile(file, loader) {
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                try {
+                    const text = e.target.result;
+                    const gltf = JSON.parse(text);
+                    
+                    // For GLTF files, we need to handle embedded resources
+                    if (gltf.buffers && gltf.buffers[0] && gltf.buffers[0].uri) {
+                        // Check if it's data URI (embedded) or external file
+                        if (gltf.buffers[0].uri.startsWith('data:')) {
+                            // Embedded data - parse directly
+                            loader.parse(
+                                gltf,
+                                '',
+                                (parsedGltf) => {
+                                    handleLoadedModel(parsedGltf, file.name);
+                                },
+                                (error) => {
+                                    console.error('Error parsing embedded GLTF:', error);
+                                    updateStatus('GLTF PARSE ERROR', 'error');
+                                    loadingOverlay.classList.add('hidden');
+                                    setTimeout(() => updateStatus('READY', 'ready'), 3000);
+                                }
+                            );
+                        } else {
+                            // External resources - show warning
+                            updateStatus('EXTERNAL RESOURCES', 'loading');
+                            loadingDetails.textContent = 'May need external files';
+                            textureWarning.classList.remove('hidden');
+                            
+                            // Try to load anyway
+                            const objectURL = URL.createObjectURL(file);
+                            loader.load(
+                                objectURL,
+                                (loadedGltf) => {
+                                    handleLoadedModel(loadedGltf, file.name);
+                                    URL.revokeObjectURL(objectURL);
+                                },
+                                (progress) => {
+                                    const percent = (progress.loaded / (progress.total || 1000000) * 100).toFixed(1);
+                                    loadingDetails.textContent = `Loading ${percent}%`;
+                                },
+                                (error) => {
+                                    console.error('Error loading GLTF:', error);
+                                    updateStatus('GLTF LOAD ERROR', 'error');
+                                    loadingOverlay.classList.add('hidden');
+                                    URL.revokeObjectURL(objectURL);
+                                    setTimeout(() => updateStatus('READY', 'ready'), 3000);
+                                }
+                            );
+                        }
+                    } else {
+                        // No buffers or inline data
+                        loader.parse(
+                            gltf,
+                            '',
+                            (parsedGltf) => {
+                                handleLoadedModel(parsedGltf, file.name);
+                            },
+                            (error) => {
+                                console.error('Error parsing GLTF:', error);
+                                updateStatus('GLTF PARSE ERROR', 'error');
+                                loadingOverlay.classList.add('hidden');
+                                setTimeout(() => updateStatus('READY', 'ready'), 3000);
+                            }
+                        );
+                    }
+                } catch (error) {
+                    console.error('Error parsing JSON:', error);
+                    updateStatus('JSON PARSE ERROR', 'error');
+                    loadingOverlay.classList.add('hidden');
+                    setTimeout(() => updateStatus('READY', 'ready'), 3000);
+                }
+            };
+            
+            reader.onerror = function(error) {
+                console.error('Error reading file:', error);
+                updateStatus('FILE READ ERROR', 'error');
+                loadingOverlay.classList.add('hidden');
+                setTimeout(() => updateStatus('READY', 'ready'), 3000);
+            };
+            
+            reader.readAsText(file);
+        }
+        
+        // Handle loaded model (both GLB and GLTF)
+        function handleLoadedModel(gltf, filename) {
+            // Clear previous model and animations
+            clearModel();
+            
+            // Add new model to scene
+            model = gltf.scene;
+            scene.add(model);
+            
+            // Enable shadows for all meshes
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            
+            // Auto-scale model to fit view
+            autoScaleModel();
+            originalScale = model.scale.x;
+            updateScaleValue(originalScale);
+            
+            // Handle animations
+            if (gltf.animations && gltf.animations.length > 0) {
+                setupAnimations(gltf.animations);
+                updateStatus(`LOADED ${gltf.animations.length} ANIM(S)`, 'ready');
+            } else {
+                disableAnimationControls();
+                updateStatus('MODEL LOADED', 'ready');
+            }
+            
+            // Update model info
+            updateModelInfo(filename, gltf);
+            
+            // Hide loading overlay
+            loadingOverlay.classList.add('hidden');
+        }
+        
+        // Load a sample model
+        function loadSampleModel(modelType) {
+            clearModel();
+            updateStatus('LOADING SAMPLE...', 'loading');
+            
+            let geometry, material;
+            
+            formatBadge.classList.add('hidden');
+            modelFormatDisplay.textContent = 'SAMPLE';
+            
+            switch(modelType) {
+                case 'box':
+                    geometry = new THREE.BoxGeometry(2, 2, 2);
+                    material = new THREE.MeshStandardMaterial({ 
+                        color: 0x4466ff,
+                        metalness: 0.3,
+                        roughness: 0.7
+                    });
+                    modelNameDisplay.textContent = 'Box';
+                    break;
+                    
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(1.5, 32, 32);
+                    material = new THREE.MeshStandardMaterial({ 
+                        color: 0xff4466,
+                        metalness: 0.2,
+                        roughness: 0.8
+                    });
+                    modelNameDisplay.textContent = 'Sphere';
+                    break;
+                    
+                case 'armature':
+                    // Create a simple armature with bones
+                    const armature = createSampleArmature();
+                    model = armature;
+                    modelNameDisplay.textContent = 'Armature';
+                    break;
+            }
+            
+            if (modelType !== 'armature') {
+                model = new THREE.Mesh(geometry, material);
+                model.castShadow = true;
+                model.receiveShadow = true;
+                scene.add(model);
+            }
+            
+            autoScaleModel();
+            originalScale = model ? model.scale.x : 1;
+            updateScaleValue(originalScale);
+            updateModelInfo(`${modelType}.sample`, null);
+            disableAnimationControls();
+            updateStatus('SAMPLE LOADED', 'ready');
+        }
+        
+        // Create a sample armature with bones
+        function createSampleArmature() {
+            const group = new THREE.Group();
+            
+            // Create bones
+            const bone1 = new THREE.Bone();
+            const bone2 = new THREE.Bone();
+            const bone3 = new THREE.Bone();
+            
+            bone1.position.y = 0;
+            bone2.position.y = 2;
+            bone3.position.y = 2;
+            
+            bone1.add(bone2);
+            bone2.add(bone3);
+            
+            // Create skeleton
+            const skeleton = new THREE.Skeleton([bone1, bone2, bone3]);
+            
+            // Create geometry for visualization
+            const geometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
+            const material = new THREE.MeshBasicMaterial({ 
+                color: 0x44ff66,
+                wireframe: true 
+            });
+            
+            const boneMesh1 = new THREE.Mesh(geometry, material);
+            const boneMesh2 = new THREE.Mesh(geometry, material);
+            
+            boneMesh1.position.y = 1;
+            boneMesh2.position.y = 1;
+            boneMesh2.position.x = 2;
+            
+            group.add(bone1);
+            group.add(boneMesh1);
+            group.add(boneMesh2);
+            
+            return group;
+        }
+        
+        // Clear the current model and animations
+        function clearModel() {
+            // Stop any playing animation
+            stopAnimation();
+            
+            // Remove bone visualization
+            if (skeletonHelper) {
+                scene.remove(skeletonHelper);
+                skeletonHelper = null;
+            }
+            
+            // Remove model from scene
+            if (model) {
+                scene.remove(model);
+                
+                // Dispose of geometry, materials, and textures
+                model.traverse((child) => {
+                    if (child.isMesh) {
+                        if (child.geometry) {
+                            child.geometry.dispose();
+                        }
+                        
+                        if (child.material) {
+                            if (Array.isArray(child.material)) {
+                                child.material.forEach(material => {
+                                    if (material.map) material.map.dispose();
+                                    if (material.normalMap) material.normalMap.dispose();
+                                    if (material.roughnessMap) material.roughnessMap.dispose();
+                                    if (material.metalnessMap) material.metalnessMap.dispose();
+                                    if (material.emissiveMap) material.emissiveMap.dispose();
+                                    material.dispose();
+                                });
+                            } else {
+                                if (child.material.map) child.material.map.dispose();
+                                if (child.material.normalMap) child.material.normalMap.dispose();
+                                if (child.material.roughnessMap) child.material.roughnessMap.dispose();
+                                if (child.material.metalnessMap) child.material.metalnessMap.dispose();
+                                if (child.material.emissiveMap) child.material.emissiveMap.dispose();
+                                child.material.dispose();
+                            }
+                        }
+                    }
+                });
+                
+                model = null;
+            }
+            
+            // Clear animation mixer
+            if (mixer) {
+                mixer.stopAllAction();
+                mixer = null;
+            }
+            
+            animations = [];
+            currentAnimation = null;
+            selectedBone = null;
+            textureCount = 0;
+            
+            // Hide bone controls
+            bonesContainer.classList.add('hidden');
+            textureCountDisplay.textContent = '0';
+        }
+        
+        // Auto-scale model to fit view
+        function autoScaleModel() {
+            if (!model) return;
+            
+            const box = new THREE.Box3().setFromObject(model);
+            const size = box.getSize(new THREE.Vector3());
+            const center = box.getCenter(new THREE.Vector3());
+            
+            // Calculate scale to fit in view
+            const maxDim = Math.max(size.x, size.y, size.z);
+            let scale = 8 / maxDim;
+            
+            // Adjust for very small or very large models
+            if (maxDim < 0.01) scale *= 100;
+            if (maxDim < 0.1) scale *= 10;
+            if (maxDim > 100) scale *= 0.1;
+            if (maxDim > 1000) scale *= 0.01;
+            
+            // Clamp scale
+            scale = Math.max(0.01, Math.min(scale, 100));
+            
+            model.scale.setScalar(scale);
+            originalScale = scale;
+            
+            // Center model
+            const worldPosition = new THREE.Vector3();
+            model.getWorldPosition(worldPosition);
+            model.position.sub(center);
+            model.position.y -= (box.min.y - floor.position.y) * scale;
+            
+            // Update controls target
+            controls.target.copy(center);
+            controls.update();
+            
+            // Update scale slider
+            modelScaleSlider.value = scale;
+            updateScaleValue(scale);
+            
+            // Adjust camera distance based on model size
+            const fov = camera.fov * (Math.PI / 180);
+            const distance = Math.max(maxDim * scale * 2, 5);
+            const cameraHeight = Math.max(maxDim * scale * 0.5, 3);
+            camera.position.set(distance * 0.7, cameraHeight, distance * 0.7);
+            controls.update();
+        }
+        
+        // Update model scale from slider
+        function updateModelScale(e) {
+            if (!model) return;
+            
+            const scale = parseFloat(e.target.value);
+            model.scale.setScalar(scale);
+            updateScaleValue(scale);
+        }
+        
+        // Reset model scale to original
+        function resetModelScale() {
+            if (!model) return;
+            
+            model.scale.setScalar(originalScale);
+            modelScaleSlider.value = originalScale;
+            updateScaleValue(originalScale);
+        }
+        
+        // Update scale value display
+        function updateScaleValue(scale) {
+            scaleValue.textContent = `${scale.toFixed(2)}x`;
+        }
+        
+        // Set up animations
+        function setupAnimations(animationClips) {
+            animations = animationClips;
+            
+            // Create animation mixer
+            mixer = new THREE.AnimationMixer(model);
+            
+            // Populate animation select dropdown
+            animationSelect.innerHTML = '';
+            animations.forEach((clip, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = clip.name || `ANIM ${index + 1}`;
+                animationSelect.appendChild(option);
+            });
+            
+            // Enable animation controls
+            animationSelect.disabled = false;
+            playBtn.disabled = false;
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+            loopToggle.disabled = false;
+            animSpeedSlider.disabled = false;
+            
+            // Select first animation
+            animationSelect.value = 0;
+            selectAnimation();
+            
+            // Update model type
+            modelTypeDisplay.textContent = 'ANIMATED';
+            animationCountDisplay.textContent = animations.length;
+        }
+        
+        // Disable animation controls
+        function disableAnimationControls() {
+            animationSelect.innerHTML = '<option value="">NO ANIMS</option>';
+            animationSelect.disabled = true;
+            playBtn.disabled = true;
+            pauseBtn.disabled = true;
+            stopBtn.disabled = true;
+            loopToggle.disabled = true;
+            animSpeedSlider.disabled = true;
+            animationProgress.style.width = '0%';
+            modelTypeDisplay.textContent = 'STATIC';
+            animationCountDisplay.textContent = '0';
+        }
+        
+        // Animation control functions
+        function playAnimation() {
+            if (!currentAnimation || !mixer) return;
+            
+            if (currentAnimation.paused) {
+                currentAnimation.paused = false;
+                mixer.timeScale = animationSpeed;
+            } else {
+                currentAnimation.reset();
+                currentAnimation.play();
+            }
+            
+            isPlaying = true;
+        }
+        
+        function pauseAnimation() {
+            if (!currentAnimation || !mixer) return;
+            
+            currentAnimation.paused = true;
+            isPlaying = false;
+        }
+        
+        function stopAnimation() {
+            if (!currentAnimation || !mixer) return;
+            
+            currentAnimation.stop();
+            isPlaying = false;
+            animationProgress.style.width = '0%';
+        }
+        
+        function toggleLoop() {
+            if (!currentAnimation) return;
+            
+            isLooping = !isLooping;
+            currentAnimation.loop = isLooping ? THREE.LoopRepeat : THREE.LoopOnce;
+        }
+        
+        function updateAnimationSpeed(e) {
+            animationSpeed = parseFloat(e.target.value);
+            animSpeedValue.textContent = `${animationSpeed.toFixed(1)}x`;
+            
+            if (mixer) {
+                mixer.timeScale = animationSpeed;
+            }
+        }
+        
+        function selectAnimation() {
+            if (!mixer || animations.length === 0) return;
+            
+            const index = parseInt(animationSelect.value);
+            if (isNaN(index) || index >= animations.length) return;
+            
+            if (currentAnimation) {
+                currentAnimation.stop();
+            }
+            
+            const clip = animations[index];
+            currentAnimation = mixer.clipAction(clip);
+            currentAnimation.clip = clip;
+            currentAnimation.loop = isLooping ? THREE.LoopRepeat : THREE.LoopOnce;
+            currentAnimation.reset();
+            currentAnimation.stop();
+            
+            isPlaying = false;
+            animationProgress.style.width = '0%';
+        }
+        
+        // Update model information
+        function updateModelInfo(filename, gltf = null) {
+            if (!model) return;
+            
+            let vertexCount = 0;
+            let triangleCount = 0;
+            let boneCount = 0;
+            let boneNames = [];
+            let hasSkeleton = false;
+            let bones = [];
+            textureCount = 0;
+            
+            // Count textures
+            const textureSet = new Set();
+            
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    const geometry = child.geometry;
+                    
+                    if (geometry.attributes.position) {
+                        vertexCount += geometry.attributes.position.count;
+                    }
+                    
+                    if (geometry.index) {
+                        triangleCount += geometry.index.count / 3;
+                    } else if (geometry.attributes.position) {
+                        triangleCount += geometry.attributes.position.count / 3;
+                    }
+                    
+                    if (child.skeleton) {
+                        hasSkeleton = true;
+                        bones = child.skeleton.bones;
+                        boneCount = bones.length;
+                        boneNames = bones.map(bone => bone.name || 'Unnamed');
+                    }
+                    
+                    // Count textures
+                    if (child.material) {
+                        const materials = Array.isArray(child.material) ? child.material : [child.material];
+                        materials.forEach(material => {
+                            if (material.map) textureSet.add(material.map);
+                            if (material.normalMap) textureSet.add(material.normalMap);
+                            if (material.roughnessMap) textureSet.add(material.roughnessMap);
+                            if (material.metalnessMap) textureSet.add(material.metalnessMap);
+                            if (material.emissiveMap) textureSet.add(material.emissiveMap);
+                            if (material.alphaMap) textureSet.add(material.alphaMap);
+                            if (material.envMap) textureSet.add(material.envMap);
+                        });
+                    }
+                }
+                
+                if (child.isBone) {
+                    boneCount++;
+                    if (!boneNames.includes(child.name)) {
+                        boneNames.push(child.name || 'Unnamed');
+                        bones.push(child);
+                    }
+                }
+            });
+            
+            textureCount = textureSet.size;
+            
+            // Update displays
+            modelNameDisplay.textContent = filename.length > 15 ? filename.substring(0, 12) + '...' : filename;
+            vertexCountDisplay.textContent = vertexCount.toLocaleString();
+            triangleCountDisplay.textContent = triangleCount.toLocaleString();
+            riggedStatusDisplay.textContent = hasSkeleton ? 'YES' : 'NO';
+            boneCountDisplay.textContent = boneCount;
+            textureCountDisplay.textContent = textureCount;
+            
+            // Update badge
+            modelBadge.textContent = hasSkeleton ? 'RIGGED' : (textureCount > 0 ? 'TEXTURED' : 'STATIC');
+            modelBadge.style.background = hasSkeleton ? 
+                'rgba(100, 255, 100, 0.15)' : 
+                (textureCount > 0 ? 'rgba(255, 200, 100, 0.15)' : 'rgba(100, 160, 255, 0.15)');
+            
+            // Update bones list
+            if (hasSkeleton && boneCount > 0) {
+                bonesContainer.classList.remove('hidden');
+                updateBonesList(bones);
+            } else {
+                bonesContainer.classList.add('hidden');
+            }
+        }
+        
+        // Update bones list display
+        function updateBonesList(bones) {
+            bonesList.innerHTML = '';
+            
+            bones.slice(0, 6).forEach((bone, index) => {
+                const div = document.createElement('div');
+                div.className = 'bone-item';
+                div.dataset.boneIndex = index;
+                div.innerHTML = `
+                    <span class="bone-name">${bone.name || `Bone ${index}`}</span>
+                `;
+                div.addEventListener('click', () => selectBone(bone, index));
+                bonesList.appendChild(div);
+            });
+            
+            if (bones.length > 6) {
+                const div = document.createElement('div');
+                div.className = 'bone-item';
+                div.innerHTML = `
+                    <span class="bone-name">+${bones.length - 6} more</span>
+                `;
+                bonesList.appendChild(div);
+            }
+        }
+        
+        // Bone control functions
+        function toggleBoneVisualization() {
+            if (!model) return;
+            
+            if (skeletonHelper) {
+                scene.remove(skeletonHelper);
+                skeletonHelper = null;
+                showBonesBtn.textContent = '👁️';
+                showBonesBtn.title = 'Show bone visualization';
+            } else {
+                let skeleton = null;
+                
+                model.traverse((child) => {
+                    if (child.skeleton && !skeleton) {
+                        skeleton = child.skeleton;
+                    }
+                });
+                
+                if (skeleton) {
+                    skeletonHelper = new THREE.SkeletonHelper(model);
+                    skeletonHelper.material.linewidth = 2;
+                    skeletonHelper.material.color = new THREE.Color(0xff3366);
+                    scene.add(skeletonHelper);
+                    showBonesBtn.textContent = '👁️';
+                    showBonesBtn.title = 'Hide bone visualization';
+                }
+            }
+        }
+        
+        function selectFirstBone() {
+            if (!model) return;
+            
+            let firstBone = null;
+            model.traverse((child) => {
+                if (child.isBone && !firstBone) {
+                    firstBone = child;
+                }
+            });
+            
+            if (firstBone) {
+                selectBone(firstBone, 0);
+            }
+        }
+        
+        function selectBone(bone, index) {
+            selectedBone = bone;
+            
+            // Highlight in list
+            const boneItems = bonesList.querySelectorAll('.bone-item');
+            boneItems.forEach(item => {
+                item.classList.remove('selected');
+                if (parseInt(item.dataset.boneIndex) === index) {
+                    item.classList.add('selected');
+                }
+            });
+            
+            updateStatus(`SELECTED: ${bone.name || 'Unnamed bone'}`, 'ready');
+        }
+        
+        function resetAllBones() {
+            if (!model) return;
+            
+            model.traverse((child) => {
+                if (child.isBone) {
+                    child.rotation.set(0, 0, 0);
+                    child.position.set(0, 0, 0);
+                    child.scale.set(1, 1, 1);
+                }
+            });
+            
+            // Reset sliders
+            boneSliders.forEach(slider => {
+                slider.value = 0;
+            });
+        }
+        
+        function updateBoneSliderValue(e) {
+            // Just update the slider position, don't apply yet
+        }
+        
+        function applyBoneRotation() {
+            if (!selectedBone) return;
+            
+            const x = parseFloat(document.querySelector('.bone-slider[data-axis="x"]').value);
+            const y = parseFloat(document.querySelector('.bone-slider[data-axis="y"]').value);
+            const z = parseFloat(document.querySelector('.bone-slider[data-axis="z"]').value);
+            
+            selectedBone.rotation.set(
+                THREE.MathUtils.degToRad(x),
+                THREE.MathUtils.degToRad(y),
+                THREE.MathUtils.degToRad(z)
+            );
+        }
+        
+        function resetBoneTransform() {
+            if (!selectedBone) return;
+            
+            selectedBone.rotation.set(0, 0, 0);
+            boneSliders.forEach(slider => {
+                slider.value = 0;
+            });
+        }
+        
+        // Update light intensity
+        function updateLightIntensity(intensity) {
+            scene.traverse((child) => {
+                if (child.isLight) {
+                    if (child.isAmbientLight) {
+                        child.intensity = intensity * 0.25;
+                    } else {
+                        child.intensity = intensity * 0.8;
+                    }
+                }
+            });
+        }
+        
+        // Toggle lights
+        function toggleLights() {
+            let lightsOn = true;
+            scene.traverse((child) => {
+                if (child.isLight) {
+                    child.visible = !child.visible;
+                    lightsOn = child.visible;
+                }
+            });
+            
+            lightsToggleBtn.title = lightsOn ? 'Turn lights off' : 'Turn lights on';
+        }
+        
+        // Toggle shadows
+        function toggleShadows() {
+            renderer.shadowMap.enabled = !renderer.shadowMap.enabled;
+            const isEnabled = renderer.shadowMap.enabled;
+            
+            scene.traverse((child) => {
+                if (child.isLight) {
+                    child.castShadow = isEnabled;
+                }
+            });
+            
+            shadowsToggleBtn.title = isEnabled ? 'Disable shadows' : 'Enable shadows';
+        }
+        
+        // Toggle wireframe
+        function toggleWireframe() {
+            if (!model) return;
+            
+            let isWireframe = false;
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => {
+                            m.wireframe = !m.wireframe;
+                            isWireframe = m.wireframe;
+                        });
+                    } else {
+                        child.material.wireframe = !child.material.wireframe;
+                        isWireframe = child.material.wireframe;
+                    }
+                }
+            });
+            
+            wireframeBtn.textContent = isWireframe ? '📐' : '📐';
+            wireframeBtn.title = isWireframe ? 'Switch to solid' : 'Switch to wireframe';
+        }
+        
+        // Reset view
+        function resetView() {
+            controls.reset();
+            if (model) {
+                autoScaleModel();
+            }
+        }
+        
+        // Update status indicator
+        function updateStatus(message, type = 'ready') {
+            statusText.textContent = message;
+            statusIndicator.className = 'status-indicator';
+            
+            switch(type) {
+                case 'ready':
+                    statusIndicator.style.background = '#4CAF50';
+                    break;
+                case 'loading':
+                    statusIndicator.classList.add('loading');
+                    break;
+                case 'error':
+                    statusIndicator.classList.add('error');
+                    break;
+            }
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = viewerContainer.clientWidth / viewerContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update animation mixer
+            if (mixer) {
+                const delta = clock.getDelta();
+                mixer.update(delta);
+                
+                // Update progress bar
+                if (currentAnimation && currentAnimation.time !== undefined && currentAnimation.clip) {
+                    const progress = (currentAnimation.time % currentAnimation.clip.duration) / currentAnimation.clip.duration * 100;
+                    animationProgress.style.width = `${progress}%`;
+                }
+            }
+            
+            // Update controls
+            controls.update();
+            
+            // Render the scene
+            renderer.render(scene, camera);
+        }
+        
+        // Initialize the app when the page loads
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
