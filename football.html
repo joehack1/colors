@@ -1,0 +1,1155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Football Field with Character Animation Editor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/dat.gui.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0c3d5e 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            overflow: hidden;
+        }
+        
+        #container {
+            display: flex;
+            height: 100vh;
+            width: 100vw;
+        }
+        
+        #scene-container {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #editor-panel {
+            width: 380px;
+            background: rgba(20, 30, 48, 0.85);
+            backdrop-filter: blur(10px);
+            border-left: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            box-shadow: -5px 0 15px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1, h2 {
+            color: #4fc3f7;
+            margin-bottom: 15px;
+            text-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            font-size: 24px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #4fc3f7;
+        }
+        
+        h2 {
+            font-size: 18px;
+            margin-top: 20px;
+            border-bottom: 1px solid rgba(79, 195, 247, 0.3);
+            padding-bottom: 8px;
+        }
+        
+        .control-group {
+            background: rgba(30, 40, 60, 0.6);
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .btn {
+            background: linear-gradient(to bottom, #4fc3f7, #0277bd);
+            color: white;
+            border: none;
+            padding: 12px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin: 8px 0;
+            width: 100%;
+            transition: all 0.2s;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn:hover {
+            background: linear-gradient(to bottom, #29b6f6, #01579b);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 10px rgba(0, 0, 0, 0.2);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: linear-gradient(to bottom, #78909c, #37474f);
+        }
+        
+        .btn-secondary:hover {
+            background: linear-gradient(to bottom, #90a4ae, #263238);
+        }
+        
+        select, input {
+            width: 100%;
+            padding: 10px;
+            margin: 8px 0;
+            border-radius: 6px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            background: rgba(10, 20, 40, 0.7);
+            color: white;
+            font-size: 14px;
+        }
+        
+        .character-list {
+            max-height: 150px;
+            overflow-y: auto;
+            background: rgba(10, 20, 40, 0.5);
+            border-radius: 6px;
+            padding: 10px;
+            margin: 10px 0;
+        }
+        
+        .character-item {
+            padding: 8px;
+            margin: 5px 0;
+            background: rgba(30, 40, 60, 0.7);
+            border-radius: 4px;
+            cursor: pointer;
+            border-left: 3px solid #4fc3f7;
+        }
+        
+        .character-item:hover {
+            background: rgba(40, 50, 70, 0.9);
+        }
+        
+        .character-item.active {
+            background: rgba(79, 195, 247, 0.2);
+            border-left: 3px solid #ff9800;
+        }
+        
+        .slider-container {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+        }
+        
+        .slider-container label {
+            min-width: 100px;
+        }
+        
+        .slider-container input {
+            flex: 1;
+            margin: 0 10px;
+        }
+        
+        .slider-value {
+            min-width: 40px;
+            text-align: center;
+            font-weight: bold;
+            color: #4fc3f7;
+        }
+        
+        .animation-button {
+            display: inline-block;
+            width: calc(50% - 5px);
+            margin: 2px;
+            padding: 10px;
+            background: rgba(30, 40, 60, 0.8);
+            border: 1px solid rgba(79, 195, 247, 0.3);
+            color: #e0e0e0;
+            border-radius: 4px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        
+        .animation-button:hover {
+            background: rgba(79, 195, 247, 0.3);
+            color: white;
+        }
+        
+        .animation-button.active {
+            background: rgba(79, 195, 247, 0.5);
+            color: white;
+            border-color: #4fc3f7;
+        }
+        
+        #animation-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+        
+        #hud {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+            max-width: 300px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        #hud h3 {
+            color: #4fc3f7;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        
+        #status {
+            font-size: 14px;
+            color: #a5d6a7;
+        }
+        
+        .instructions {
+            font-size: 12px;
+            color: #b0bec5;
+            margin-top: 10px;
+            line-height: 1.4;
+        }
+        
+        @media (max-width: 1200px) {
+            #editor-panel {
+                width: 350px;
+            }
+        }
+        
+        @media (max-width: 900px) {
+            #container {
+                flex-direction: column;
+            }
+            
+            #editor-panel {
+                width: 100%;
+                height: 45vh;
+                order: 1;
+            }
+            
+            #scene-container {
+                height: 55vh;
+                order: 2;
+            }
+        }
+        
+        /* Scrollbar styling */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        
+        ::-webkit-scrollbar-track {
+            background: rgba(30, 40, 60, 0.5);
+        }
+        
+        ::-webkit-scrollbar-thumb {
+            background: #4fc3f7;
+            border-radius: 4px;
+        }
+        
+        ::-webkit-scrollbar-thumb:hover {
+            background: #29b6f6;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="scene-container">
+            <div id="hud">
+                <h3>Football Field Environment</h3>
+                <div id="status">Ready. Load characters to begin.</div>
+                <div class="instructions">
+                    <strong>Controls:</strong> Left-click to select characters. Right-click + drag to rotate view. Mouse wheel to zoom. Use editor panel to control animations.
+                </div>
+            </div>
+        </div>
+        
+        <div id="editor-panel">
+            <h1>Football Field Animation Editor</h1>
+            
+            <div class="control-group">
+                <h2>Character Management</h2>
+                <button id="load-character-btn" class="btn">Load GLTF/GLB Character</button>
+                <input type="file" id="character-file" accept=".gltf,.glb" style="display: none;" multiple>
+                
+                <div class="character-list" id="character-list">
+                    <!-- Character items will be added here -->
+                    <div class="character-item" data-id="default" style="border-left-color: #ff9800;">Default Player (Demo)</div>
+                </div>
+                
+                <button id="remove-character-btn" class="btn btn-secondary">Remove Selected Character</button>
+            </div>
+            
+            <div class="control-group">
+                <h2>Animation Controls</h2>
+                <div id="animation-buttons">
+                    <div class="animation-button" data-animation="idle">Idle</div>
+                    <div class="animation-button" data-animation="walk">Walk</div>
+                    <div class="animation-button" data-animation="run">Run</div>
+                    <div class="animation-button" data-animation="jump">Jump</div>
+                    <div class="animation-button" data-animation="kneel">Kneel</div>
+                    <div class="animation-button" data-animation="dance">Dance</div>
+                </div>
+                
+                <div class="slider-container">
+                    <label for="animation-speed">Speed:</label>
+                    <input type="range" id="animation-speed" min="0" max="2" step="0.1" value="1">
+                    <span class="slider-value" id="speed-value">1.0</span>
+                </div>
+                
+                <div class="slider-container">
+                    <label for="animation-blend">Blend:</label>
+                    <input type="range" id="animation-blend" min="0" max="1" step="0.1" value="0.5">
+                    <span class="slider-value" id="blend-value">0.5</span>
+                </div>
+            </div>
+            
+            <div class="control-group">
+                <h2>Character Movement</h2>
+                <div class="slider-container">
+                    <label for="position-x">Position X:</label>
+                    <input type="range" id="position-x" min="-30" max="30" step="1" value="0">
+                    <span class="slider-value" id="x-value">0</span>
+                </div>
+                
+                <div class="slider-container">
+                    <label for="position-z">Position Z:</label>
+                    <input type="range" id="position-z" min="-20" max="20" step="1" value="0">
+                    <span class="slider-value" id="z-value">0</span>
+                </div>
+                
+                <div class="slider-container">
+                    <label for="rotation-y">Rotation:</label>
+                    <input type="range" id="rotation-y" min="0" max="360" step="1" value="0">
+                    <span class="slider-value" id="y-rot-value">0°</span>
+                </div>
+                
+                <button id="reset-position-btn" class="btn btn-secondary">Reset Position</button>
+            </div>
+            
+            <div class="control-group">
+                <h2>Environment Settings</h2>
+                <label for="field-color">Field Color:</label>
+                <input type="color" id="field-color" value="#2e7d32">
+                
+                <label for="light-intensity">Light Intensity:</label>
+                <input type="range" id="light-intensity" min="0.5" max="2" step="0.1" value="1">
+                
+                <button id="toggle-grid-btn" class="btn btn-secondary">Toggle Grid</button>
+            </div>
+            
+            <div class="instructions" style="margin-top: 20px;">
+                <strong>Note:</strong> This demo includes a default character. To use your own GLTF/GLB models, click "Load GLTF/GLB Character" and select your rigged models. For best results, ensure models have skeletal animations.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let scene, camera, renderer, controls;
+        let characters = [];
+        let selectedCharacter = null;
+        let mixer, clock;
+        let fieldMesh;
+        let gridHelper;
+        let defaultAnimations = {
+            idle: { duration: 2, loop: true },
+            walk: { duration: 1, loop: true },
+            run: { duration: 0.7, loop: true },
+            jump: { duration: 1.5, loop: false },
+            kneel: { duration: 1, loop: false },
+            dance: { duration: 2, loop: true }
+        };
+
+        // Initialize the scene
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87CEEB); // Sky blue
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(30, 20, 30);
+            
+            // Create renderer
+            const container = document.getElementById('scene-container');
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+            
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            
+            // Add clock for animations
+            clock = new THREE.Clock();
+            mixer = new THREE.AnimationMixer();
+            
+            // Create football field
+            createFootballField();
+            
+            // Add lighting
+            addLighting();
+            
+            // Add grid helper
+            gridHelper = new THREE.GridHelper(100, 20, 0x444444, 0x222222);
+            scene.add(gridHelper);
+            
+            // Add default character
+            createDefaultCharacter();
+            
+            // Setup event listeners
+            setupEventListeners();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+            
+            // Start animation loop
+            animate();
+            
+            updateStatus("Scene initialized. Default character loaded.");
+        }
+        
+        // Create football field
+        function createFootballField() {
+            // Field (green)
+            const fieldGeometry = new THREE.PlaneGeometry(60, 40);
+            const fieldMaterial = new THREE.MeshLambertMaterial({ color: 0x2e7d32 });
+            fieldMesh = new THREE.Mesh(fieldGeometry, fieldMaterial);
+            fieldMesh.rotation.x = -Math.PI / 2;
+            fieldMesh.receiveShadow = true;
+            scene.add(fieldMesh);
+            
+            // Field lines (white)
+            const lineMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+            
+            // Outer boundary
+            const boundaryPoints = [
+                new THREE.Vector3(-30, 0.1, -20),
+                new THREE.Vector3(30, 0.1, -20),
+                new THREE.Vector3(30, 0.1, 20),
+                new THREE.Vector3(-30, 0.1, 20),
+                new THREE.Vector3(-30, 0.1, -20)
+            ];
+            const boundaryGeometry = new THREE.BufferGeometry().setFromPoints(boundaryPoints);
+            const boundaryLine = new THREE.Line(boundaryGeometry, lineMaterial);
+            scene.add(boundaryLine);
+            
+            // Center circle
+            const centerCircleGeometry = new THREE.CircleGeometry(5, 32);
+            const centerCircleEdges = new THREE.EdgesGeometry(centerCircleGeometry);
+            const centerCircle = new THREE.LineSegments(centerCircleEdges, lineMaterial);
+            centerCircle.rotation.x = -Math.PI / 2;
+            centerCircle.position.y = 0.1;
+            scene.add(centerCircle);
+            
+            // Center line
+            const centerLinePoints = [
+                new THREE.Vector3(0, 0.1, -20),
+                new THREE.Vector3(0, 0.1, 20)
+            ];
+            const centerLineGeometry = new THREE.BufferGeometry().setFromPoints(centerLinePoints);
+            const centerLine = new THREE.Line(centerLineGeometry, lineMaterial);
+            scene.add(centerLine);
+            
+            // Goal areas (simplified)
+            const goalAreaMaterial = new THREE.LineBasicMaterial({ color: 0xffffff });
+            
+            // Left goal area
+            const leftGoalPoints = [
+                new THREE.Vector3(-30, 0.1, -7.32),
+                new THREE.Vector3(-24, 0.1, -7.32),
+                new THREE.Vector3(-24, 0.1, 7.32),
+                new THREE.Vector3(-30, 0.1, 7.32)
+            ];
+            const leftGoalGeometry = new THREE.BufferGeometry().setFromPoints(leftGoalPoints);
+            const leftGoal = new THREE.LineLoop(leftGoalGeometry, goalAreaMaterial);
+            scene.add(leftGoal);
+            
+            // Right goal area
+            const rightGoalPoints = [
+                new THREE.Vector3(30, 0.1, -7.32),
+                new THREE.Vector3(24, 0.1, -7.32),
+                new THREE.Vector3(24, 0.1, 7.32),
+                new THREE.Vector3(30, 0.1, 7.32)
+            ];
+            const rightGoalGeometry = new THREE.BufferGeometry().setFromPoints(rightGoalPoints);
+            const rightGoal = new THREE.LineLoop(rightGoalGeometry, goalAreaMaterial);
+            scene.add(rightGoal);
+            
+            // Goals
+            createGoal(-30, 0, 0, Math.PI/2);
+            createGoal(30, 0, 0, -Math.PI/2);
+        }
+        
+        // Create a goal post
+        function createGoal(x, y, z, rotationY) {
+            const goalMaterial = new THREE.MeshLambertMaterial({ color: 0xffffff });
+            
+            // Goal posts (vertical)
+            const postGeometry = new THREE.CylinderGeometry(0.2, 0.2, 3);
+            
+            // Left post
+            const leftPost = new THREE.Mesh(postGeometry, goalMaterial);
+            leftPost.position.set(x, 1.5, -3.66);
+            leftPost.castShadow = true;
+            scene.add(leftPost);
+            
+            // Right post
+            const rightPost = new THREE.Mesh(postGeometry, goalMaterial);
+            rightPost.position.set(x, 1.5, 3.66);
+            rightPost.castShadow = true;
+            scene.add(rightPost);
+            
+            // Crossbar
+            const crossbarGeometry = new THREE.CylinderGeometry(0.2, 0.2, 7.32);
+            const crossbar = new THREE.Mesh(crossbarGeometry, goalMaterial);
+            crossbar.position.set(x, 3, 0);
+            crossbar.castShadow = true;
+            scene.add(crossbar);
+            
+            // Goal net (simplified)
+            const netMaterial = new THREE.MeshBasicMaterial({ 
+                color: 0xffffff, 
+                transparent: true, 
+                opacity: 0.3,
+                side: THREE.DoubleSide
+            });
+            
+            const netGeometry = new THREE.PlaneGeometry(7.32, 3);
+            const net = new THREE.Mesh(netGeometry, netMaterial);
+            net.position.set(x > 0 ? x-0.5 : x+0.5, 1.5, 0);
+            net.rotation.y = rotationY;
+            scene.add(net);
+        }
+        
+        // Add lighting to the scene
+        function addLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            // Directional light (sun)
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(50, 100, 50);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.camera.left = -50;
+            directionalLight.shadow.camera.right = 50;
+            directionalLight.shadow.camera.top = 50;
+            directionalLight.shadow.camera.bottom = -50;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 500;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            
+            // Store for intensity control
+            scene.userData.directionalLight = directionalLight;
+            scene.userData.ambientLight = ambientLight;
+        }
+        
+        // Create a simple default character for demo purposes
+        function createDefaultCharacter() {
+            const group = new THREE.Group();
+            group.name = "Default Player";
+            group.userData = {
+                id: "default",
+                type: "character",
+                animations: Object.keys(defaultAnimations),
+                currentAnimation: "idle",
+                mixer: null,
+                clips: []
+            };
+            
+            // Body (torso)
+            const bodyGeometry = new THREE.BoxGeometry(1.5, 3, 1);
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x2196F3 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 1.5;
+            body.castShadow = true;
+            group.add(body);
+            
+            // Head
+            const headGeometry = new THREE.SphereGeometry(0.7, 16, 16);
+            const headMaterial = new THREE.MeshLambertMaterial({ color: 0xFFCCBC });
+            const head = new THREE.Mesh(headGeometry, headMaterial);
+            head.position.y = 3.5;
+            head.castShadow = true;
+            group.add(head);
+            
+            // Arms
+            const armGeometry = new THREE.BoxGeometry(0.5, 2, 0.5);
+            const armMaterial = new THREE.MeshLambertMaterial({ color: 0x2196F3 });
+            
+            // Left arm
+            const leftArm = new THREE.Mesh(armGeometry, armMaterial);
+            leftArm.position.set(-1.3, 2, 0);
+            leftArm.castShadow = true;
+            group.add(leftArm);
+            
+            // Right arm
+            const rightArm = new THREE.Mesh(armGeometry, armMaterial);
+            rightArm.position.set(1.3, 2, 0);
+            rightArm.castShadow = true;
+            group.add(rightArm);
+            
+            // Legs
+            const legGeometry = new THREE.BoxGeometry(0.7, 2, 0.7);
+            const legMaterial = new THREE.MeshLambertMaterial({ color: 0x1565C0 });
+            
+            // Left leg
+            const leftLeg = new THREE.Mesh(legGeometry, legMaterial);
+            leftLeg.position.set(-0.5, 0, 0);
+            leftLeg.castShadow = true;
+            group.add(leftLeg);
+            
+            // Right leg
+            const rightLeg = new THREE.Mesh(legGeometry, legMaterial);
+            rightLeg.position.set(0.5, 0, 0);
+            rightLeg.castShadow = true;
+            group.add(rightLeg);
+            
+            // Position character on field
+            group.position.set(0, 2, 0);
+            
+            // Add to scene
+            scene.add(group);
+            
+            // Store reference
+            characters.push(group);
+            selectedCharacter = group;
+            
+            // Create simple animation clips for the default character
+            createDefaultAnimations(group);
+            
+            // Update character list in UI
+            updateCharacterList();
+            
+            // Select this character in UI
+            selectCharacter("default");
+        }
+        
+        // Create simple animations for default character
+        function createDefaultAnimations(character) {
+            // Create a simple mixer for this character
+            const mixer = new THREE.AnimationMixer(character);
+            character.userData.mixer = mixer;
+            
+            // Create animation clips for each type
+            Object.keys(defaultAnimations).forEach(animName => {
+                const tracks = [];
+                const duration = defaultAnimations[animName].duration;
+                
+                // Animate legs for walking/running
+                if (animName === "walk" || animName === "run" || animName === "dance") {
+                    const leftLeg = character.children[4]; // Left leg
+                    const rightLeg = character.children[5]; // Right leg
+                    
+                    // Left leg animation
+                    const leftLegTrack = new THREE.VectorKeyframeTrack(
+                        '.children[4].position[y]',
+                        [0, duration/2, duration],
+                        [0, 1, 0]
+                    );
+                    tracks.push(leftLegTrack);
+                    
+                    // Right leg animation (opposite phase)
+                    const rightLegTrack = new THREE.VectorKeyframeTrack(
+                        '.children[5].position[y]',
+                        [0, duration/2, duration],
+                        [0, -1, 0]
+                    );
+                    tracks.push(rightLegTrack);
+                    
+                    // Arm animation for walking/running
+                    if (animName === "walk" || animName === "run") {
+                        const leftArm = character.children[2];
+                        const rightArm = character.children[3];
+                        
+                        const leftArmTrack = new THREE.VectorKeyframeTrack(
+                            '.children[2].rotation[z]',
+                            [0, duration/2, duration],
+                            [0.5, -0.5, 0.5]
+                        );
+                        tracks.push(leftArmTrack);
+                        
+                        const rightArmTrack = new THREE.VectorKeyframeTrack(
+                            '.children[3].rotation[z]',
+                            [0, duration/2, duration],
+                            [-0.5, 0.5, -0.5]
+                        );
+                        tracks.push(rightArmTrack);
+                    }
+                    
+                    // Dance animation - more movement
+                    if (animName === "dance") {
+                        const bodyTrack = new THREE.VectorKeyframeTrack(
+                            '.children[0].rotation[z]',
+                            [0, duration/4, duration/2, 3*duration/4, duration],
+                            [-0.2, 0.2, -0.2, 0.2, -0.2]
+                        );
+                        tracks.push(bodyTrack);
+                        
+                        const headTrack = new THREE.VectorKeyframeTrack(
+                            '.children[1].rotation[z]',
+                            [0, duration/2, duration],
+                            [0.3, -0.3, 0.3]
+                        );
+                        tracks.push(headTrack);
+                    }
+                }
+                
+                // Jump animation
+                if (animName === "jump") {
+                    const bodyTrack = new THREE.VectorKeyframeTrack(
+                        '.position[y]',
+                        [0, duration/2, duration],
+                        [2, 6, 2]
+                    );
+                    tracks.push(bodyTrack);
+                }
+                
+                // Kneel animation
+                if (animName === "kneel") {
+                    const bodyTrack = new THREE.VectorKeyframeTrack(
+                        '.position[y]',
+                        [0, duration],
+                        [2, 1]
+                    );
+                    tracks.push(bodyTrack);
+                    
+                    const leftLegTrack = new THREE.VectorKeyframeTrack(
+                        '.children[4].rotation[x]',
+                        [0, duration],
+                        [0, -Math.PI/2]
+                    );
+                    tracks.push(leftLegTrack);
+                    
+                    const rightLegTrack = new THREE.VectorKeyframeTrack(
+                        '.children[5].rotation[x]',
+                        [0, duration],
+                        [0, -Math.PI/2]
+                    );
+                    tracks.push(rightLegTrack);
+                }
+                
+                // Create and store the clip
+                if (tracks.length > 0) {
+                    const clip = new THREE.AnimationClip(animName, duration, tracks);
+                    character.userData.clips.push(clip);
+                    
+                    // Play idle animation by default
+                    if (animName === "idle") {
+                        const action = mixer.clipAction(clip);
+                        action.play();
+                    }
+                }
+            });
+        }
+        
+        // Load GLTF/GLB character
+        function loadCharacter(file) {
+            const loader = new THREE.GLTFLoader();
+            
+            loader.load(
+                URL.createObjectURL(file),
+                (gltf) => {
+                    const model = gltf.scene;
+                    model.name = file.name.replace(/\.[^/.]+$/, "") || "Character";
+                    model.userData = {
+                        id: `character-${characters.length}`,
+                        type: "character",
+                        animations: gltf.animations.length > 0 ? 
+                            gltf.animations.map(a => a.name) : 
+                            Object.keys(defaultAnimations),
+                        currentAnimation: "",
+                        mixer: null,
+                        clips: gltf.animations,
+                        fileName: file.name
+                    };
+                    
+                    // Scale and position the model
+                    model.scale.set(1, 1, 1);
+                    model.position.set(
+                        (Math.random() * 30) - 15,
+                        0,
+                        (Math.random() * 20) - 10
+                    );
+                    
+                    // Enable shadows
+                    model.traverse((child) => {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                        }
+                    });
+                    
+                    // Add to scene
+                    scene.add(model);
+                    characters.push(model);
+                    
+                    // Set up animations if available
+                    if (gltf.animations.length > 0) {
+                        const mixer = new THREE.AnimationMixer(model);
+                        model.userData.mixer = mixer;
+                        
+                        // Play the first animation by default
+                        if (gltf.animations[0]) {
+                            const action = mixer.clipAction(gltf.animations[0]);
+                            action.play();
+                            model.userData.currentAnimation = gltf.animations[0].name;
+                        }
+                    } else {
+                        // Create default animations for rigged models without animations
+                        createDefaultAnimations(model);
+                        model.userData.currentAnimation = "idle";
+                    }
+                    
+                    // Select the new character
+                    selectCharacter(model.userData.id);
+                    updateCharacterList();
+                    updateStatus(`Loaded character: ${file.name}`);
+                    
+                    // Update animation buttons based on available animations
+                    updateAnimationButtons(model.userData.animations);
+                },
+                (xhr) => {
+                    const percent = Math.round((xhr.loaded / xhr.total) * 100);
+                    updateStatus(`Loading ${file.name}: ${percent}%`);
+                },
+                (error) => {
+                    console.error('Error loading GLTF model:', error);
+                    updateStatus(`Error loading ${file.name}`, true);
+                }
+            );
+        }
+        
+        // Setup event listeners
+        function setupEventListeners() {
+            // Load character button
+            document.getElementById('load-character-btn').addEventListener('click', () => {
+                document.getElementById('character-file').click();
+            });
+            
+            // File input for characters
+            document.getElementById('character-file').addEventListener('change', (e) => {
+                const files = e.target.files;
+                for (let i = 0; i < files.length; i++) {
+                    loadCharacter(files[i]);
+                }
+                e.target.value = ''; // Reset input
+            });
+            
+            // Remove character button
+            document.getElementById('remove-character-btn').addEventListener('click', () => {
+                if (selectedCharacter && selectedCharacter.userData.id !== "default") {
+                    const index = characters.indexOf(selectedCharacter);
+                    if (index > -1) {
+                        scene.remove(selectedCharacter);
+                        characters.splice(index, 1);
+                        
+                        // Select another character if available
+                        if (characters.length > 0) {
+                            selectCharacter(characters[0].userData.id);
+                        } else {
+                            selectedCharacter = null;
+                        }
+                        
+                        updateCharacterList();
+                        updateStatus("Character removed");
+                    }
+                } else if (selectedCharacter && selectedCharacter.userData.id === "default") {
+                    updateStatus("Cannot remove default character", true);
+                } else {
+                    updateStatus("No character selected", true);
+                }
+            });
+            
+            // Animation buttons
+            document.querySelectorAll('.animation-button').forEach(button => {
+                button.addEventListener('click', () => {
+                    if (selectedCharacter) {
+                        const animation = button.getAttribute('data-animation');
+                        playAnimation(selectedCharacter, animation);
+                        
+                        // Update UI
+                        document.querySelectorAll('.animation-button').forEach(btn => {
+                            btn.classList.remove('active');
+                        });
+                        button.classList.add('active');
+                    }
+                });
+            });
+            
+            // Animation speed slider
+            const speedSlider = document.getElementById('animation-speed');
+            const speedValue = document.getElementById('speed-value');
+            speedSlider.addEventListener('input', () => {
+                const value = parseFloat(speedSlider.value);
+                speedValue.textContent = value.toFixed(1);
+                
+                if (selectedCharacter && selectedCharacter.userData.mixer) {
+                    selectedCharacter.userData.mixer.timeScale = value;
+                }
+            });
+            
+            // Animation blend slider
+            const blendSlider = document.getElementById('animation-blend');
+            const blendValue = document.getElementById('blend-value');
+            blendSlider.addEventListener('input', () => {
+                const value = parseFloat(blendSlider.value);
+                blendValue.textContent = value.toFixed(1);
+                
+                // This would normally control crossfade between animations
+                // For simplicity, we'll just log it
+                if (selectedCharacter) {
+                    console.log(`Animation blend set to ${value} for ${selectedCharacter.name}`);
+                }
+            });
+            
+            // Position sliders
+            const positionX = document.getElementById('position-x');
+            const positionZ = document.getElementById('position-z');
+            const rotationY = document.getElementById('rotation-y');
+            
+            const xValue = document.getElementById('x-value');
+            const zValue = document.getElementById('z-value');
+            const yRotValue = document.getElementById('y-rot-value');
+            
+            positionX.addEventListener('input', () => {
+                xValue.textContent = positionX.value;
+                if (selectedCharacter) {
+                    selectedCharacter.position.x = parseFloat(positionX.value);
+                }
+            });
+            
+            positionZ.addEventListener('input', () => {
+                zValue.textContent = positionZ.value;
+                if (selectedCharacter) {
+                    selectedCharacter.position.z = parseFloat(positionZ.value);
+                }
+            });
+            
+            rotationY.addEventListener('input', () => {
+                yRotValue.textContent = `${rotationY.value}°`;
+                if (selectedCharacter) {
+                    selectedCharacter.rotation.y = THREE.MathUtils.degToRad(parseFloat(rotationY.value));
+                }
+            });
+            
+            // Reset position button
+            document.getElementById('reset-position-btn').addEventListener('click', () => {
+                if (selectedCharacter) {
+                    selectedCharacter.position.set(0, selectedCharacter.position.y, 0);
+                    selectedCharacter.rotation.y = 0;
+                    
+                    positionX.value = 0;
+                    positionZ.value = 0;
+                    rotationY.value = 0;
+                    
+                    xValue.textContent = "0";
+                    zValue.textContent = "0";
+                    yRotValue.textContent = "0°";
+                }
+            });
+            
+            // Field color picker
+            document.getElementById('field-color').addEventListener('input', (e) => {
+                if (fieldMesh && fieldMesh.material) {
+                    fieldMesh.material.color.set(e.target.value);
+                }
+            });
+            
+            // Light intensity slider
+            document.getElementById('light-intensity').addEventListener('input', (e) => {
+                const intensity = parseFloat(e.target.value);
+                if (scene.userData.directionalLight) {
+                    scene.userData.directionalLight.intensity = intensity;
+                }
+            });
+            
+            // Toggle grid button
+            document.getElementById('toggle-grid-btn').addEventListener('click', () => {
+                gridHelper.visible = !gridHelper.visible;
+            });
+            
+            // Character selection via click
+            renderer.domElement.addEventListener('click', (event) => {
+                const mouse = new THREE.Vector2();
+                const rect = renderer.domElement.getBoundingClientRect();
+                
+                mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+                
+                const raycaster = new THREE.Raycaster();
+                raycaster.setFromCamera(mouse, camera);
+                
+                // Find intersected objects
+                const intersects = raycaster.intersectObjects(characters);
+                
+                if (intersects.length > 0) {
+                    const character = intersects[0].object.parent.type === "Group" ? 
+                                      intersects[0].object.parent : 
+                                      intersects[0].object;
+                    selectCharacter(character.userData.id);
+                }
+            });
+        }
+        
+        // Play animation on character
+        function playAnimation(character, animationName) {
+            if (!character.userData.mixer) return;
+            
+            // Stop current animation
+            character.userData.mixer.stopAllAction();
+            
+            // Find the animation clip
+            let clip = null;
+            
+            if (character.userData.clips && character.userData.clips.length > 0) {
+                clip = character.userData.clips.find(c => c.name === animationName);
+            }
+            
+            // If clip found, play it
+            if (clip) {
+                const action = character.userData.mixer.clipAction(clip);
+                action.play();
+                character.userData.currentAnimation = animationName;
+                updateStatus(`Playing ${animationName} animation`);
+            } else {
+                updateStatus(`Animation "${animationName}" not found for this character`, true);
+            }
+        }
+        
+        // Select a character
+        function selectCharacter(characterId) {
+            // Deselect current character
+            if (selectedCharacter) {
+                // Remove visual indicator (could be enhanced)
+            }
+            
+            // Find and select new character
+            selectedCharacter = characters.find(c => c.userData.id === characterId);
+            
+            if (selectedCharacter) {
+                // Update UI
+                updateCharacterList();
+                
+                // Update sliders to match character position
+                document.getElementById('position-x').value = selectedCharacter.position.x;
+                document.getElementById('position-z').value = selectedCharacter.position.z;
+                document.getElementById('rotation-y').value = THREE.MathUtils.radToDeg(selectedCharacter.rotation.y);
+                
+                document.getElementById('x-value').textContent = Math.round(selectedCharacter.position.x);
+                document.getElementById('z-value').textContent = Math.round(selectedCharacter.position.z);
+                document.getElementById('y-rot-value').textContent = `${Math.round(THREE.MathUtils.radToDeg(selectedCharacter.rotation.y))}°`;
+                
+                // Update animation buttons
+                updateAnimationButtons(selectedCharacter.userData.animations);
+                
+                // Highlight current animation
+                document.querySelectorAll('.animation-button').forEach(button => {
+                    button.classList.remove('active');
+                    if (button.getAttribute('data-animation') === selectedCharacter.userData.currentAnimation) {
+                        button.classList.add('active');
+                    }
+                });
+                
+                updateStatus(`Selected: ${selectedCharacter.name}`);
+            }
+        }
+        
+        // Update character list in UI
+        function updateCharacterList() {
+            const characterList = document.getElementById('character-list');
+            characterList.innerHTML = '';
+            
+            characters.forEach(character => {
+                const item = document.createElement('div');
+                item.className = 'character-item';
+                if (character === selectedCharacter) {
+                    item.classList.add('active');
+                }
+                item.textContent = character.name;
+                item.setAttribute('data-id', character.userData.id);
+                
+                item.addEventListener('click', () => {
+                    selectCharacter(character.userData.id);
+                });
+                
+                characterList.appendChild(item);
+            });
+        }
+        
+        // Update animation buttons based on available animations
+        function updateAnimationButtons(animations) {
+            document.querySelectorAll('.animation-button').forEach(button => {
+                const animName = button.getAttribute('data-animation');
+                if (animations.includes(animName)) {
+                    button.style.display = 'inline-block';
+                } else {
+                    button.style.display = 'none';
+                }
+            });
+        }
+        
+        // Update status message
+        function updateStatus(message, isError = false) {
+            const statusElement = document.getElementById('status');
+            statusElement.textContent = message;
+            statusElement.style.color = isError ? '#ef9a9a' : '#a5d6a7';
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            const container = document.getElementById('scene-container');
+            camera.aspect = container.clientWidth / container.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container.clientWidth, container.clientHeight);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update animation mixers
+            const delta = clock.getDelta();
+            
+            characters.forEach(character => {
+                if (character.userData.mixer) {
+                    character.userData.mixer.update(delta);
+                }
+            });
+            
+            // Update controls
+            controls.update();
+            
+            // Render scene
+            renderer.render(scene, camera);
+        }
+        
+        // Initialize the application when the page loads
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
