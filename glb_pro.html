@@ -493,10 +493,17 @@
                     </div>
                     <input type="range" id="rotation-speed" min="0" max="2" step="0.1" value="0.5">
                 </div>
+                <div class="compact-slider">
+                    <div class="slider-label" style="align-items: center;">
+                        <span>Floor Color</span>
+                        <input type="color" id="floor-color" value="#0a0a1a" style="width: 30px; height: 15px; border: none; background: none; cursor: pointer;">
+                    </div>
+                </div>
                 <div class="btn-group">
                     <button class="btn btn-secondary btn-sm" id="auto-rotate">🌀 Auto: Off</button>
                     <button class="btn btn-secondary btn-sm" id="wireframe-btn">📐 Wireframe</button>
                     <button class="btn btn-secondary btn-sm" id="reset-view">🔄 Reset</button>
+                    <button class="btn btn-secondary btn-sm" id="screenshot-btn">📷 Snap</button>
                 </div>
             </div>
             
@@ -531,6 +538,7 @@
         let animations = [];
         let currentAnimation = null;
         let clock = new THREE.Clock();
+        let floor = null;
         
         // Animation state
         let isPlaying = false;
@@ -652,7 +660,22 @@
             gridHelper.material.opacity = 0.05;
             gridHelper.material.transparent = true;
             gridHelper.position.y = -2;
+            gridHelper.position.y = 0;
             scene.add(gridHelper);
+            
+            // Add floor plane for color
+            const groundGeometry = new THREE.PlaneGeometry(100, 100);
+            const groundMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x0a0a1a,
+                roughness: 0.8,
+                metalness: 0.2
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.position.y = -0.01;
+            ground.receiveShadow = true;
+            scene.add(ground);
+            floor = ground;
             
             // Add some ambient particles
             const particleCount = 100;
@@ -744,6 +767,12 @@
             
             wireframeBtn.addEventListener('click', toggleWireframe);
             resetViewBtn.addEventListener('click', resetView);
+            
+            document.getElementById('floor-color').addEventListener('input', (e) => {
+                if (floor) floor.material.color.set(e.target.value);
+            });
+            
+            document.getElementById('screenshot-btn').addEventListener('click', takeScreenshot);
             
             // Lighting controls
             lightIntensitySlider.addEventListener('input', (e) => {
@@ -1212,6 +1241,15 @@
         function resetView() {
             controls.reset();
             centerAndScaleModel();
+        }
+        
+        // Take screenshot
+        function takeScreenshot() {
+            renderer.render(scene, camera);
+            const link = document.createElement('a');
+            link.download = `model-screenshot-${Date.now()}.png`;
+            link.href = renderer.domElement.toDataURL('image/png');
+            link.click();
         }
         
         // Update status indicator

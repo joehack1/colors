@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RGB Gaming PC Setup</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a2e 100%);
+            font-family: 'Arial', sans-serif;
+        }
+        #info {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: #00ff88;
+            font-size: 14px;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #00ff88;
+            z-index: 100;
+        }
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #00ff88;
+            font-size: 24px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div id="info">
+        🎮 RGB Gaming Setup<br>
+        🖱️ Drag to rotate<br>
+        🔍 Scroll to zoom
+    </div>
+    <div id="loading">Loading Gaming Setup...</div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer, pc, monitor, keyboard, mouse, screenMesh;
+        let rgbLights = [];
+        let time = 0;
+        let isDragging = false;
+        let rotationY = 0;
+        let rotationX = 0.3;
+        let cameraDistance = 8;
+
+        function init() {
+            // Scene setup
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.Fog(0x0a0a1a, 10, 50);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(5, 4, 8);
+            camera.lookAt(0, 1, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.body.appendChild(renderer.domElement);
+
+            // Lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.3);
+            scene.add(ambientLight);
+
+            const mainLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            mainLight.position.set(5, 10, 5);
+            mainLight.castShadow = true;
+            scene.add(mainLight);
+
+            // Desk
+            createDesk();
+
+            // PC Tower
+            createPC();
+
+            // Monitor
+            createMonitor();
+
+            // Keyboard
+            createKeyboard();
+
+            // Mouse
+            createMouse();
+
+            // RGB Strip Lights
+            createRGBLights();
+
+            // Floor
+            const floorGeometry = new THREE.PlaneGeometry(30, 30);
+            const floorMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a2e,
+                roughness: 0.8 
+            });
+            const floor = new THREE.Mesh(floorGeometry, floorMaterial);
+            floor.rotation.x = -Math.PI / 2;
+            floor.position.y = -0.05;
+            floor.receiveShadow = true;
+            scene.add(floor);
+
+            // Mouse controls for full 3D rotation
+            let isDragging = false;
+            let previousMousePosition = { x: 0, y: 0 };
+            let rotationY = 0;
+            let rotationX = 0.3;
+
+            renderer.domElement.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                previousMousePosition = { x: e.clientX, y: e.clientY };
+            });
+
+            renderer.domElement.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const deltaX = e.clientX - previousMousePosition.x;
+                    const deltaY = e.clientY - previousMousePosition.y;
+                    
+                    rotationY += deltaX * 0.01;
+                    rotationX += deltaY * 0.01;
+                    
+                    // Limit vertical rotation
+                    rotationX = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, rotationX));
+                    
+                    previousMousePosition = { x: e.clientX, y: e.clientY };
+                }
+            });
+
+            renderer.domElement.addEventListener('mouseup', () => {
+                isDragging = false;
+            });
+
+            // Zoom
+            let cameraDistance = 8;
+            renderer.domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                cameraDistance += e.deltaY * 0.01;
+                cameraDistance = Math.max(3, Math.min(15, cameraDistance));
+            });
+
+            window.addEventListener('resize', onWindowResize, false);
+
+            document.getElementById('loading').style.display = 'none';
+            
+            animate();
+        }
+
+        function createDesk() {
+            const deskGeometry = new THREE.BoxGeometry(6, 0.1, 3);
+            const deskMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x2a2a3e,
+                roughness: 0.6 
+            });
+            const desk = new THREE.Mesh(deskGeometry, deskMaterial);
+            desk.position.y = 0;
+            desk.castShadow = true;
+            desk.receiveShadow = true;
+            scene.add(desk);
+        }
+
+        function createPC() {
+            pc = new THREE.Group();
+
+            // Main case
+            const caseGeometry = new THREE.BoxGeometry(0.8, 1.8, 1.6);
+            const caseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a1a,
+                metalness: 0.8,
+                roughness: 0.2 
+            });
+            const pcCase = new THREE.Mesh(caseGeometry, caseMaterial);
+            pcCase.castShadow = true;
+            pc.add(pcCase);
+
+            // Glass side panel
+            const glassGeometry = new THREE.BoxGeometry(0.05, 1.6, 1.4);
+            const glassMaterial = new THREE.MeshPhysicalMaterial({ 
+                color: 0x88ccff,
+                metalness: 0.1,
+                roughness: 0.1,
+                transparent: true,
+                opacity: 0.3,
+                transmission: 0.9
+            });
+            const glass = new THREE.Mesh(glassGeometry, glassMaterial);
+            glass.position.x = 0.4;
+            pc.add(glass);
+
+            // RGB fans (3 front fans)
+            for (let i = 0; i < 3; i++) {
+                const fan = createRGBFan();
+                fan.position.set(-0.35, -0.5 + i * 0.5, 0);
+                fan.rotation.y = Math.PI / 2;
+                pc.add(fan);
+            }
+
+            // Top RGB strip
+            const stripGeometry = new THREE.BoxGeometry(0.7, 0.05, 0.05);
+            const stripMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xff0000,
+                emissive: 0xff0000,
+                emissiveIntensity: 2
+            });
+            const topStrip = new THREE.Mesh(stripGeometry, stripMaterial);
+            topStrip.position.y = 0.9;
+            pc.add(topStrip);
+            rgbLights.push(topStrip);
+
+            pc.position.set(-2, 0.95, 0);
+            scene.add(pc);
+        }
+
+        function createRGBFan() {
+            const fan = new THREE.Group();
+            
+            const ringGeometry = new THREE.RingGeometry(0.15, 0.2, 32);
+            const ringMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x00ffff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 2,
+                side: THREE.DoubleSide
+            });
+            const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+            fan.add(ring);
+            rgbLights.push(ring);
+
+            // Fan blades
+            for (let i = 0; i < 4; i++) {
+                const bladeGeometry = new THREE.BoxGeometry(0.15, 0.02, 0.02);
+                const bladeMaterial = new THREE.MeshStandardMaterial({ color: 0x222222 });
+                const blade = new THREE.Mesh(bladeGeometry, bladeMaterial);
+                blade.position.x = 0.075;
+                blade.rotation.z = (i * Math.PI) / 2;
+                fan.add(blade);
+            }
+
+            return fan;
+        }
+
+        function createMonitor() {
+            monitor = new THREE.Group();
+
+            // Monitor stand base
+            const baseGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.05, 32);
+            const baseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a1a,
+                metalness: 0.7 
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            base.position.y = 0.075;
+            monitor.add(base);
+
+            // Monitor arm
+            const armGeometry = new THREE.CylinderGeometry(0.05, 0.05, 0.6, 16);
+            const arm = new THREE.Mesh(armGeometry, baseMaterial);
+            arm.position.y = 0.4;
+            monitor.add(arm);
+
+            // Very thin monitor bezel
+            const frameGeometry = new THREE.BoxGeometry(2.72, 1.72, 0.08);
+            const frameMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x0a0a0a,
+                metalness: 0.5 
+            });
+            const frame = new THREE.Mesh(frameGeometry, frameMaterial);
+            frame.position.y = 1.6;
+            frame.castShadow = true;
+            monitor.add(frame);
+
+            // Screen with God of War image - larger to minimize bezel
+            const screenGeometry = new THREE.PlaneGeometry(2.65, 1.65);
+            
+            // Create a canvas for God of War themed screen
+            const canvas = document.createElement('canvas');
+            canvas.width = 1024;
+            canvas.height = 640;
+            const ctx = canvas.getContext('2d');
+            
+            // Background
+            const gradient = ctx.createLinearGradient(0, 0, 1024, 640);
+            gradient.addColorStop(0, '#1a0a0a');
+            gradient.addColorStop(0.5, '#2a1515');
+            gradient.addColorStop(1, '#0a0a1a');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, 1024, 640);
+            
+            // God of War logo style text
+            ctx.font = 'bold 80px Arial';
+            ctx.fillStyle = '#ff3333';
+            ctx.shadowColor = '#ff0000';
+            ctx.shadowBlur = 20;
+            ctx.textAlign = 'center';
+            ctx.fillText('GOD OF WAR', 512, 200);
+            
+            ctx.font = 'bold 40px Arial';
+            ctx.fillStyle = '#ffffff';
+            ctx.shadowBlur = 10;
+            ctx.fillText('RAGNARÖK', 512, 260);
+            
+            // Kratos silhouette effect
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+            ctx.beginPath();
+            ctx.arc(512, 420, 120, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Nordic runes decoration
+            ctx.strokeStyle = '#ff6633';
+            ctx.lineWidth = 3;
+            ctx.shadowBlur = 5;
+            for (let i = 0; i < 5; i++) {
+                ctx.beginPath();
+                ctx.moveTo(100 + i * 180, 500);
+                ctx.lineTo(120 + i * 180, 550);
+                ctx.stroke();
+            }
+            
+            const texture = new THREE.CanvasTexture(canvas);
+            const screenMaterial = new THREE.MeshStandardMaterial({ 
+                map: texture,
+                emissive: 0x222222,
+                emissiveIntensity: 0.5
+            });
+            screenMesh = new THREE.Mesh(screenGeometry, screenMaterial);
+            screenMesh.position.set(0, 1.6, 0.045);
+            monitor.add(screenMesh);
+
+            monitor.position.set(0.5, 0.05, -0.5);
+            scene.add(monitor);
+        }
+
+        function createKeyboard() {
+            keyboard = new THREE.Group();
+
+            // Keyboard base
+            const baseGeometry = new THREE.BoxGeometry(1.5, 0.08, 0.5);
+            const baseMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x1a1a1a,
+                metalness: 0.6 
+            });
+            const base = new THREE.Mesh(baseGeometry, baseMaterial);
+            keyboard.add(base);
+
+            // RGB light strips - Left side
+            const stripGeometry = new THREE.BoxGeometry(0.03, 0.06, 0.52);
+            const stripMaterial1 = new THREE.MeshStandardMaterial({ 
+                color: 0xff0000,
+                emissive: 0xff0000,
+                emissiveIntensity: 2
+            });
+            const leftStrip = new THREE.Mesh(stripGeometry, stripMaterial1);
+            leftStrip.position.x = -0.76;
+            keyboard.add(leftStrip);
+            rgbLights.push(leftStrip);
+
+            // RGB light strips - Right side
+            const stripMaterial2 = new THREE.MeshStandardMaterial({ 
+                color: 0x00ff00,
+                emissive: 0x00ff00,
+                emissiveIntensity: 2
+            });
+            const rightStrip = new THREE.Mesh(stripGeometry, stripMaterial2);
+            rightStrip.position.x = 0.76;
+            keyboard.add(rightStrip);
+            rgbLights.push(rightStrip);
+
+            // RGB light strips - Top
+            const topStripGeometry = new THREE.BoxGeometry(1.52, 0.06, 0.03);
+            const stripMaterial3 = new THREE.MeshStandardMaterial({ 
+                color: 0x0000ff,
+                emissive: 0x0000ff,
+                emissiveIntensity: 2
+            });
+            const topStrip = new THREE.Mesh(topStripGeometry, stripMaterial3);
+            topStrip.position.z = -0.26;
+            keyboard.add(topStrip);
+            rgbLights.push(topStrip);
+
+            // RGB light strips - Bottom
+            const stripMaterial4 = new THREE.MeshStandardMaterial({ 
+                color: 0xff00ff,
+                emissive: 0xff00ff,
+                emissiveIntensity: 2
+            });
+            const bottomStrip = new THREE.Mesh(topStripGeometry, stripMaterial4);
+            bottomStrip.position.z = 0.26;
+            keyboard.add(bottomStrip);
+            rgbLights.push(bottomStrip);
+
+            // Keys - simple black keys without RGB
+            for (let row = 0; row < 5; row++) {
+                for (let col = 0; col < 15; col++) {
+                    const keyGeometry = new THREE.BoxGeometry(0.08, 0.05, 0.08);
+                    const keyMaterial = new THREE.MeshStandardMaterial({ 
+                        color: 0x2a2a2a,
+                        metalness: 0.3,
+                        roughness: 0.7
+                    });
+                    const key = new THREE.Mesh(keyGeometry, keyMaterial);
+                    key.position.set(-0.7 + col * 0.095, 0.065, -0.2 + row * 0.095);
+                    keyboard.add(key);
+                }
+            }
+
+            keyboard.position.set(0.5, 0.09, 0.7);
+            scene.add(keyboard);
+        }
+
+        function createMouse() {
+            mouse = new THREE.Group();
+
+            // Mouse body
+            const bodyGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.2);
+            bodyGeometry.scale(1, 1, 1.2);
+            const bodyMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x0a0a0a,
+                metalness: 0.7,
+                roughness: 0.3 
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            mouse.add(body);
+
+            // RGB scroll wheel
+            const wheelGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.08, 16);
+            const wheelMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0xff00ff,
+                emissive: 0xff00ff,
+                emissiveIntensity: 2
+            });
+            const wheel = new THREE.Mesh(wheelGeometry, wheelMaterial);
+            wheel.rotation.z = Math.PI / 2;
+            wheel.position.set(0, 0.05, -0.05);
+            mouse.add(wheel);
+            rgbLights.push(wheel);
+
+            // RGB logo
+            const logoGeometry = new THREE.CircleGeometry(0.03, 32);
+            const logoMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x00ffff,
+                emissive: 0x00ffff,
+                emissiveIntensity: 2
+            });
+            const logo = new THREE.Mesh(logoGeometry, logoMaterial);
+            logo.rotation.x = -Math.PI / 2;
+            logo.position.y = 0.041;
+            mouse.add(logo);
+            rgbLights.push(logo);
+
+            mouse.position.set(1.2, 0.09, 0.8);
+            scene.add(mouse);
+        }
+
+        function createRGBLights() {
+            // Add point lights for RGB effect
+            const colors = [0xff0000, 0x00ff00, 0x0000ff, 0xff00ff, 0x00ffff];
+            
+            for (let i = 0; i < 5; i++) {
+                const light = new THREE.PointLight(colors[i], 1, 5);
+                light.position.set(-2 + i * 1, 1.5, 0);
+                scene.add(light);
+            }
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            time += 0.01;
+
+            // Animate RGB colors
+            rgbLights.forEach((light, index) => {
+                const hue = (time * 0.5 + index * 0.1) % 1;
+                const color = new THREE.Color().setHSL(hue, 1, 0.5);
+                light.material.color = color;
+                light.material.emissive = color;
+            });
+
+            // Rotate PC fans
+            if (pc) {
+                pc.children.forEach(child => {
+                    if (child.type === 'Group') {
+                        child.rotation.z += 0.05;
+                    }
+                });
+            }
+
+            // Update camera position based on mouse rotation
+            if (!isDragging) {
+                const radius = cameraDistance;
+                camera.position.x = radius * Math.sin(rotationY) * Math.cos(rotationX);
+                camera.position.y = 4 + radius * Math.sin(rotationX);
+                camera.position.z = radius * Math.cos(rotationY) * Math.cos(rotationX);
+                camera.lookAt(0, 1, 0);
+            } else {
+                const radius = cameraDistance;
+                camera.position.x = radius * Math.sin(rotationY) * Math.cos(rotationX);
+                camera.position.y = 4 + radius * Math.sin(rotationX);
+                camera.position.z = radius * Math.cos(rotationY) * Math.cos(rotationX);
+                camera.lookAt(0, 1, 0);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+    </script>
+</body>
+</html>
