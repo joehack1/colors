@@ -822,7 +822,7 @@
             const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x111111, 0x111111);
             gridHelper.material.opacity = 0.15;
             gridHelper.material.transparent = true;
-            gridHelper.position.y = -2;
+            gridHelper.position.y = 0;
             scene.add(gridHelper);
             
             // Create a subtle ground plane for shadows
@@ -833,7 +833,7 @@
             });
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -2;
+            ground.position.y = 0;
             ground.receiveShadow = true;
             scene.add(ground);
             
@@ -1195,12 +1195,13 @@
             model.scale.setScalar(scale);
             originalScale = scale;
             
-            // Center model
-            model.position.sub(center);
-            model.position.y -= box.min.y * scale; // Place on floor
+            // Center model X/Z and place on floor
+            model.position.x = -center.x;
+            model.position.z = -center.z;
+            model.position.y = floor.position.y - box.min.y * scale;
             
             // Update controls target
-            controls.target.copy(center);
+            controls.target.set(0, (box.max.y - box.min.y) * scale * 0.5, 0);
             controls.update();
             
             // Update scale slider

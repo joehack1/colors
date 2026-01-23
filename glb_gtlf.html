@@ -884,7 +884,7 @@
             const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x111111, 0x111111);
             gridHelper.material.opacity = 0.1;
             gridHelper.material.transparent = true;
-            gridHelper.position.y = -5;
+            gridHelper.position.y = 0;
             scene.add(gridHelper);
             
             const groundGeometry = new THREE.PlaneGeometry(gridSize, gridSize);
@@ -894,7 +894,7 @@
             });
             const ground = new THREE.Mesh(groundGeometry, groundMaterial);
             ground.rotation.x = -Math.PI / 2;
-            ground.position.y = -5;
+            ground.position.y = 0;
             ground.receiveShadow = true;
             scene.add(ground);
             
@@ -1376,10 +1376,13 @@
             
             const worldPosition = new THREE.Vector3();
             model.getWorldPosition(worldPosition);
-            model.position.sub(center);
-            model.position.y -= (box.min.y - floor.position.y) * scale;
             
-            controls.target.copy(center);
+            // Center model on X/Z and place on floor (Y=0)
+            model.position.x = -center.x;
+            model.position.z = -center.z;
+            model.position.y = floor.position.y - box.min.y * scale;
+            
+            controls.target.set(0, (box.max.y - box.min.y) * scale * 0.5, 0);
             controls.update();
             
             modelScaleSlider.value = scale;
