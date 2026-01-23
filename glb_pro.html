@@ -1,0 +1,1269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced GLB Model Viewer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/libs/dat.gui.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
+            color: #e6e6e6;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        
+        .container {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+        }
+        
+        #viewer-container {
+            width: 100%;
+            height: 100%;
+            cursor: grab;
+        }
+        
+        #viewer-container.grabbing {
+            cursor: grabbing;
+        }
+        
+        /* Compact Controls Panel */
+        .controls-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 320px;
+            background: rgba(15, 20, 35, 0.85);
+            backdrop-filter: blur(10px);
+            border-radius: 12px;
+            padding: 15px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            max-height: calc(100vh - 40px);
+            overflow-y: auto;
+            transition: all 0.3s ease;
+        }
+        
+        .controls-panel:hover {
+            background: rgba(20, 25, 45, 0.92);
+        }
+        
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(100, 150, 255, 0.3);
+        }
+        
+        .panel-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #64a0ff;
+        }
+        
+        .collapse-btn {
+            background: rgba(100, 150, 255, 0.2);
+            border: 1px solid rgba(100, 150, 255, 0.3);
+            color: #64a0ff;
+            width: 24px;
+            height: 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .section {
+            margin-bottom: 15px;
+            padding: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 8px;
+            border-left: 3px solid #64a0ff;
+        }
+        
+        .section-title {
+            font-size: 0.95rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #8ab4f8;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .section-title i {
+            font-size: 0.9rem;
+        }
+        
+        .drop-area {
+            border: 2px dashed rgba(100, 150, 255, 0.5);
+            border-radius: 8px;
+            padding: 20px 15px;
+            text-align: center;
+            margin-bottom: 12px;
+            transition: all 0.3s ease;
+            background: rgba(100, 150, 255, 0.05);
+        }
+        
+        .drop-area:hover {
+            background: rgba(100, 150, 255, 0.1);
+            border-color: #64a0ff;
+        }
+        
+        .btn {
+            background: linear-gradient(135deg, #64a0ff 0%, #4a7fff 100%);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 4px 12px rgba(100, 160, 255, 0.4);
+        }
+        
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+        
+        .btn-sm {
+            padding: 5px 10px;
+            font-size: 0.8rem;
+        }
+        
+        .btn-group {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+        
+        .compact-slider {
+            margin: 8px 0;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 4px;
+            font-size: 0.85rem;
+            opacity: 0.9;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 4px;
+            border-radius: 2px;
+            background: rgba(255, 255, 255, 0.1);
+            outline: none;
+            -webkit-appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: #64a0ff;
+            cursor: pointer;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        /* Animation Controls */
+        .animation-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-top: 8px;
+        }
+        
+        .animation-select {
+            grid-column: 1 / -1;
+            width: 100%;
+            padding: 6px 10px;
+            border-radius: 6px;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: white;
+            font-size: 0.85rem;
+        }
+        
+        /* Info Display */
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            font-size: 0.8rem;
+        }
+        
+        .info-item {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        
+        .info-label {
+            opacity: 0.7;
+            font-size: 0.75rem;
+        }
+        
+        .info-value {
+            color: #64a0ff;
+            font-weight: 500;
+        }
+        
+        /* Bones List */
+        .bones-list {
+            max-height: 120px;
+            overflow-y: auto;
+            background: rgba(0, 0, 0, 0.2);
+            border-radius: 6px;
+            padding: 8px;
+            margin-top: 8px;
+            font-size: 0.8rem;
+        }
+        
+        .bone-item {
+            padding: 4px 8px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .bone-item:last-child {
+            border-bottom: none;
+        }
+        
+        .bone-name {
+            color: #8ab4f8;
+        }
+        
+        .bone-count {
+            background: rgba(100, 160, 255, 0.2);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 0.75rem;
+        }
+        
+        /* Progress Bar */
+        .progress-bar {
+            width: 100%;
+            height: 4px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 2px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #64a0ff, #8ab4f8);
+            width: 0%;
+            transition: width 0.1s ease;
+        }
+        
+        /* Status Indicator */
+        .status {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(15, 20, 35, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            backdrop-filter: blur(5px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #4CAF50;
+            animation: pulse 2s infinite;
+        }
+        
+        .status-indicator.loading {
+            background: #FF9800;
+        }
+        
+        .status-indicator.error {
+            background: #F44336;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Hide file input */
+        #file-input {
+            display: none;
+        }
+        
+        /* Loading overlay */
+        .loading-overlay {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(15, 20, 35, 0.95);
+            padding: 20px 30px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(100, 150, 255, 0.3);
+            z-index: 1000;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 3px solid rgba(100, 160, 255, 0.3);
+            border-top: 3px solid #64a0ff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+        
+        /* Scrollbar styling */
+        .controls-panel::-webkit-scrollbar {
+            width: 6px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 3px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-thumb {
+            background: rgba(100, 160, 255, 0.5);
+            border-radius: 3px;
+        }
+        
+        .controls-panel::-webkit-scrollbar-thumb:hover {
+            background: rgba(100, 160, 255, 0.7);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div id="viewer-container"></div>
+        
+        <!-- Loading Overlay -->
+        <div id="loading-overlay" class="loading-overlay hidden">
+            <div class="spinner"></div>
+            <div id="loading-text">Loading model...</div>
+        </div>
+        
+        <!-- Controls Panel -->
+        <div class="controls-panel">
+            <div class="panel-header">
+                <div class="panel-title">Model Controls</div>
+                <button class="collapse-btn" id="collapse-btn">−</button>
+            </div>
+            
+            <!-- File Upload Section -->
+            <div class="section">
+                <div class="section-title">📁 Model Loader</div>
+                <div class="drop-area" id="drop-area">
+                    <p style="font-size: 0.85rem; margin-bottom: 10px;">Drag & drop GLB file</p>
+                    <button class="btn" id="file-input-btn">
+                        📂 Choose File
+                    </button>
+                    <input type="file" id="file-input" accept=".glb,.gltf">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm sample-model" data-model="box">Box</button>
+                    <button class="btn btn-secondary btn-sm sample-model" data-model="sphere">Sphere</button>
+                    <button class="btn btn-secondary btn-sm sample-model" data-model="monkey">Monkey</button>
+                </div>
+            </div>
+            
+            <!-- Animation Controls -->
+            <div class="section" id="animation-section">
+                <div class="section-title">🎬 Animations</div>
+                <select class="animation-select" id="animation-select" disabled>
+                    <option value="">No animations</option>
+                </select>
+                <div class="animation-controls">
+                    <button class="btn btn-secondary btn-sm" id="play-btn" disabled>▶ Play</button>
+                    <button class="btn btn-secondary btn-sm" id="pause-btn" disabled>⏸ Pause</button>
+                    <button class="btn btn-secondary btn-sm" id="stop-btn" disabled>⏹ Stop</button>
+                    <button class="btn btn-secondary btn-sm" id="loop-toggle" disabled>🔁 Loop: Off</button>
+                </div>
+                <div class="compact-slider">
+                    <div class="slider-label">
+                        <span>Speed</span>
+                        <span id="anim-speed-value">1.0x</span>
+                    </div>
+                    <input type="range" id="anim-speed" min="0" max="2" step="0.1" value="1">
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" id="animation-progress"></div>
+                </div>
+            </div>
+            
+            <!-- Model Info -->
+            <div class="section">
+                <div class="section-title">📊 Model Info</div>
+                <div class="info-grid">
+                    <div class="info-item">
+                        <span class="info-label">Name</span>
+                        <span class="info-value" id="model-name">Box (Sample)</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Type</span>
+                        <span class="info-value" id="model-type">Static</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Vertices</span>
+                        <span class="info-value" id="vertex-count">24</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Triangles</span>
+                        <span class="info-value" id="triangle-count">12</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Rigged</span>
+                        <span class="info-value" id="rigged-status">No</span>
+                    </div>
+                    <div class="info-item">
+                        <span class="info-label">Bones</span>
+                        <span class="info-value" id="bone-count">0</span>
+                    </div>
+                </div>
+                <div id="bones-container" class="hidden">
+                    <div style="margin-top: 10px; font-size: 0.85rem; color: #8ab4f8;">Bones List:</div>
+                    <div class="bones-list" id="bones-list"></div>
+                </div>
+            </div>
+            
+            <!-- View Controls -->
+            <div class="section">
+                <div class="section-title">👁️ View</div>
+                <div class="compact-slider">
+                    <div class="slider-label">
+                        <span>Rotation Speed</span>
+                        <span id="rotation-value">0.5</span>
+                    </div>
+                    <input type="range" id="rotation-speed" min="0" max="2" step="0.1" value="0.5">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm" id="auto-rotate">🌀 Auto: Off</button>
+                    <button class="btn btn-secondary btn-sm" id="wireframe-btn">📐 Wireframe</button>
+                    <button class="btn btn-secondary btn-sm" id="reset-view">🔄 Reset</button>
+                </div>
+            </div>
+            
+            <!-- Lighting -->
+            <div class="section">
+                <div class="section-title">💡 Lighting</div>
+                <div class="compact-slider">
+                    <div class="slider-label">
+                        <span>Intensity</span>
+                        <span id="light-value">1.0</span>
+                    </div>
+                    <input type="range" id="light-intensity" min="0" max="2" step="0.1" value="1">
+                </div>
+                <div class="btn-group">
+                    <button class="btn btn-secondary btn-sm" id="lights-toggle">💡 Lights: On</button>
+                    <button class="btn btn-secondary btn-sm" id="shadows-toggle">🌓 Shadows</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Status Indicator -->
+        <div class="status">
+            <div class="status-indicator" id="status-indicator"></div>
+            <span id="status-text">Ready</span>
+        </div>
+    </div>
+
+    <script>
+        // Main Three.js variables
+        let scene, camera, renderer, controls, mixer;
+        let model = null;
+        let animations = [];
+        let currentAnimation = null;
+        let clock = new THREE.Clock();
+        
+        // Animation state
+        let isPlaying = false;
+        let isLooping = false;
+        let animationSpeed = 1.0;
+        
+        // DOM elements
+        const viewerContainer = document.getElementById('viewer-container');
+        const loadingOverlay = document.getElementById('loading-overlay');
+        const loadingText = document.getElementById('loading-text');
+        const statusIndicator = document.getElementById('status-indicator');
+        const statusText = document.getElementById('status-text');
+        
+        // Control elements
+        const fileInput = document.getElementById('file-input');
+        const fileInputBtn = document.getElementById('file-input-btn');
+        const dropArea = document.getElementById('drop-area');
+        const collapseBtn = document.getElementById('collapse-btn');
+        
+        // Animation controls
+        const animationSelect = document.getElementById('animation-select');
+        const playBtn = document.getElementById('play-btn');
+        const pauseBtn = document.getElementById('pause-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const loopToggle = document.getElementById('loop-toggle');
+        const animSpeedSlider = document.getElementById('anim-speed');
+        const animSpeedValue = document.getElementById('anim-speed-value');
+        const animationProgress = document.getElementById('animation-progress');
+        
+        // View controls
+        const rotationSpeedSlider = document.getElementById('rotation-speed');
+        const rotationValue = document.getElementById('rotation-value');
+        const autoRotateBtn = document.getElementById('auto-rotate');
+        const wireframeBtn = document.getElementById('wireframe-btn');
+        const resetViewBtn = document.getElementById('reset-view');
+        
+        // Lighting controls
+        const lightIntensitySlider = document.getElementById('light-intensity');
+        const lightValue = document.getElementById('light-value');
+        const lightsToggleBtn = document.getElementById('lights-toggle');
+        const shadowsToggleBtn = document.getElementById('shadows-toggle');
+        
+        // Model info displays
+        const modelNameDisplay = document.getElementById('model-name');
+        const modelTypeDisplay = document.getElementById('model-type');
+        const vertexCountDisplay = document.getElementById('vertex-count');
+        const triangleCountDisplay = document.getElementById('triangle-count');
+        const riggedStatusDisplay = document.getElementById('rigged-status');
+        const boneCountDisplay = document.getElementById('bone-count');
+        const bonesContainer = document.getElementById('bones-container');
+        const bonesList = document.getElementById('bones-list');
+        
+        // Initialize the 3D environment
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0a0a1a);
+            scene.fog = new THREE.Fog(0x0a0a1a, 10, 50);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(45, viewerContainer.clientWidth / viewerContainer.clientHeight, 0.1, 1000);
+            camera.position.set(6, 4, 8);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.setPixelRatio(window.devicePixelRatio);
+            viewerContainer.appendChild(renderer.domElement);
+            
+            // Add orbit controls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.minDistance = 1;
+            controls.maxDistance = 100;
+            
+            // Add lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+            directionalLight.position.set(10, 20, 15);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            directionalLight.shadow.camera.near = 0.5;
+            directionalLight.shadow.camera.far = 50;
+            directionalLight.shadow.camera.left = -20;
+            directionalLight.shadow.camera.right = 20;
+            directionalLight.shadow.camera.top = 20;
+            directionalLight.shadow.camera.bottom = -20;
+            scene.add(directionalLight);
+            
+            // Add subtle background elements
+            addBackgroundElements();
+            
+            // Load initial sample model
+            loadSampleModel('box');
+            
+            // Set up event listeners
+            setupEventListeners();
+            
+            // Start animation loop
+            animate();
+            
+            // Handle window resize
+            window.addEventListener('resize', onWindowResize);
+            
+            // Update status
+            updateStatus('Ready', 'ready');
+        }
+        
+        // Add subtle background elements for visual interest
+        function addBackgroundElements() {
+            // Add a subtle grid
+            const gridHelper = new THREE.GridHelper(30, 30, 0x000000, 0x000000);
+            gridHelper.material.opacity = 0.05;
+            gridHelper.material.transparent = true;
+            gridHelper.position.y = -2;
+            scene.add(gridHelper);
+            
+            // Add some ambient particles
+            const particleCount = 100;
+            const particles = new THREE.BufferGeometry();
+            const positions = new Float32Array(particleCount * 3);
+            
+            for (let i = 0; i < particleCount * 3; i += 3) {
+                positions[i] = (Math.random() - 0.5) * 50;
+                positions[i + 1] = (Math.random() - 0.5) * 50;
+                positions[i + 2] = (Math.random() - 0.5) * 50;
+            }
+            
+            particles.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            
+            const particleMaterial = new THREE.PointsMaterial({
+                color: 0x4466ff,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.3
+            });
+            
+            const particleSystem = new THREE.Points(particles, particleMaterial);
+            scene.add(particleSystem);
+        }
+        
+        // Set up all event listeners
+        function setupEventListeners() {
+            // File input button
+            fileInputBtn.addEventListener('click', () => fileInput.click());
+            
+            // File input change
+            fileInput.addEventListener('change', handleFileSelect);
+            
+            // Drop area events
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.style.borderColor = '#64a0ff';
+                dropArea.style.background = 'rgba(100, 160, 255, 0.15)';
+            });
+            
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.style.borderColor = 'rgba(100, 150, 255, 0.5)';
+                dropArea.style.background = 'rgba(100, 150, 255, 0.05)';
+            });
+            
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.style.borderColor = 'rgba(100, 150, 255, 0.5)';
+                dropArea.style.background = 'rgba(100, 150, 255, 0.05)';
+                
+                if (e.dataTransfer.files.length) {
+                    handleFileSelect({ target: { files: e.dataTransfer.files } });
+                }
+            });
+            
+            // Collapse button
+            collapseBtn.addEventListener('click', () => {
+                const panel = document.querySelector('.controls-panel');
+                panel.classList.toggle('collapsed');
+                collapseBtn.textContent = panel.classList.contains('collapsed') ? '+' : '−';
+            });
+            
+            // Sample models
+            document.querySelectorAll('.sample-model').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const modelType = btn.getAttribute('data-model');
+                    loadSampleModel(modelType);
+                });
+            });
+            
+            // Animation controls
+            playBtn.addEventListener('click', playAnimation);
+            pauseBtn.addEventListener('click', pauseAnimation);
+            stopBtn.addEventListener('click', stopAnimation);
+            loopToggle.addEventListener('click', toggleLoop);
+            animSpeedSlider.addEventListener('input', updateAnimationSpeed);
+            animationSelect.addEventListener('change', selectAnimation);
+            
+            // View controls
+            rotationSpeedSlider.addEventListener('input', (e) => {
+                rotationValue.textContent = parseFloat(e.target.value).toFixed(1);
+            });
+            
+            autoRotateBtn.addEventListener('click', () => {
+                const isAuto = autoRotateBtn.textContent.includes('On');
+                autoRotateBtn.textContent = isAuto ? '🌀 Auto: Off' : '🌀 Auto: On';
+                controls.autoRotate = !isAuto;
+            });
+            
+            wireframeBtn.addEventListener('click', toggleWireframe);
+            resetViewBtn.addEventListener('click', resetView);
+            
+            // Lighting controls
+            lightIntensitySlider.addEventListener('input', (e) => {
+                const value = parseFloat(e.target.value);
+                lightValue.textContent = value.toFixed(1);
+                updateLightIntensity(value);
+            });
+            
+            lightsToggleBtn.addEventListener('click', toggleLights);
+            shadowsToggleBtn.addEventListener('click', toggleShadows);
+            
+            // Mouse cursor styles
+            renderer.domElement.addEventListener('mousedown', () => {
+                viewerContainer.classList.add('grabbing');
+            });
+            
+            renderer.domElement.addEventListener('mouseup', () => {
+                viewerContainer.classList.remove('grabbing');
+            });
+        }
+        
+        // Handle file selection
+        function handleFileSelect(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            // Check if it's a GLB/GLTF file
+            if (!file.name.toLowerCase().endsWith('.glb') && !file.name.toLowerCase().endsWith('.gltf')) {
+                updateStatus('Please select a GLB or GLTF file', 'error');
+                setTimeout(() => updateStatus('Ready', 'ready'), 2000);
+                return;
+            }
+            
+            // Show loading overlay
+            loadingOverlay.classList.remove('hidden');
+            loadingText.textContent = `Loading ${file.name}...`;
+            updateStatus('Loading model...', 'loading');
+            
+            // Load the GLB/GLTF file
+            const loader = new THREE.GLTFLoader();
+            const objectURL = URL.createObjectURL(file);
+            
+            loader.load(
+                objectURL,
+                (gltf) => {
+                    // Clear previous model and animations
+                    clearModel();
+                    
+                    // Add new model to scene
+                    model = gltf.scene;
+                    scene.add(model);
+                    
+                    // Center and scale the model
+                    centerAndScaleModel();
+                    
+                    // Handle animations
+                    if (gltf.animations && gltf.animations.length > 0) {
+                        setupAnimations(gltf.animations);
+                        updateStatus(`Loaded ${gltf.animations.length} animation(s)`, 'ready');
+                    } else {
+                        disableAnimationControls();
+                        updateStatus('Model loaded (no animations)', 'ready');
+                    }
+                    
+                    // Update model info
+                    updateModelInfo(file.name);
+                    
+                    // Hide loading overlay
+                    loadingOverlay.classList.add('hidden');
+                    
+                    // Free the object URL
+                    URL.revokeObjectURL(objectURL);
+                },
+                (progress) => {
+                    // Update loading progress
+                    const percent = (progress.loaded / progress.total * 100).toFixed(1);
+                    loadingText.textContent = `Loading ${file.name}... ${percent}%`;
+                },
+                (error) => {
+                    console.error('Error loading model:', error);
+                    updateStatus('Error loading model', 'error');
+                    loadingOverlay.classList.add('hidden');
+                    
+                    // Free the object URL even on error
+                    URL.revokeObjectURL(objectURL);
+                    
+                    setTimeout(() => updateStatus('Ready', 'ready'), 3000);
+                }
+            );
+        }
+        
+        // Load a sample model
+        function loadSampleModel(modelType) {
+            clearModel();
+            updateStatus('Loading sample model...', 'loading');
+            
+            let geometry, material;
+            
+            switch(modelType) {
+                case 'box':
+                    geometry = new THREE.BoxGeometry(2, 2, 2);
+                    material = new THREE.MeshStandardMaterial({ 
+                        color: 0x4466ff,
+                        metalness: 0.3,
+                        roughness: 0.7
+                    });
+                    modelNameDisplay.textContent = 'Box (Sample)';
+                    break;
+                    
+                case 'sphere':
+                    geometry = new THREE.SphereGeometry(1.5, 32, 32);
+                    material = new THREE.MeshStandardMaterial({ 
+                        color: 0xff4466,
+                        metalness: 0.2,
+                        roughness: 0.8
+                    });
+                    modelNameDisplay.textContent = 'Sphere (Sample)';
+                    break;
+                    
+                case 'monkey':
+                    geometry = new THREE.IcosahedronGeometry(1.5, 2);
+                    material = new THREE.MeshStandardMaterial({ 
+                        color: 0x44ff66,
+                        wireframe: true
+                    });
+                    modelNameDisplay.textContent = 'Monkey (Sample)';
+                    break;
+            }
+            
+            model = new THREE.Mesh(geometry, material);
+            model.castShadow = true;
+            model.receiveShadow = true;
+            scene.add(model);
+            
+            centerAndScaleModel();
+            updateModelInfo(`${modelType}.sample`);
+            disableAnimationControls();
+            updateStatus('Sample model loaded', 'ready');
+        }
+        
+        // Clear the current model and animations
+        function clearModel() {
+            // Stop any playing animation
+            stopAnimation();
+            
+            // Remove model from scene
+            if (model) {
+                scene.remove(model);
+                
+                // Dispose of geometry and materials
+                if (model.geometry) model.geometry.dispose();
+                if (model.material) {
+                    if (Array.isArray(model.material)) {
+                        model.material.forEach(m => m.dispose());
+                    } else {
+                        model.material.dispose();
+                    }
+                }
+                
+                model = null;
+            }
+            
+            // Clear animation mixer
+            if (mixer) {
+                mixer.stopAllAction();
+                mixer = null;
+            }
+            
+            animations = [];
+            currentAnimation = null;
+        }
+        
+        // Center and scale the model
+        function centerAndScaleModel() {
+            if (!model) return;
+            
+            const box = new THREE.Box3().setFromObject(model);
+            const center = box.getCenter(new THREE.Vector3());
+            const size = box.getSize(new THREE.Vector3());
+            
+            // Center the model
+            model.position.x -= center.x;
+            model.position.y -= center.y;
+            model.position.z -= center.z;
+            
+            // Scale to fit view
+            const maxDim = Math.max(size.x, size.y, size.z);
+            const scale = 5 / maxDim;
+            model.scale.setScalar(scale);
+            
+            // Update controls target
+            controls.target.set(0, 0, 0);
+            controls.update();
+        }
+        
+        // Set up animations
+        function setupAnimations(animationClips) {
+            animations = animationClips;
+            
+            // Create animation mixer
+            mixer = new THREE.AnimationMixer(model);
+            
+            // Populate animation select dropdown
+            animationSelect.innerHTML = '';
+            animations.forEach((clip, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = clip.name || `Animation ${index + 1}`;
+                animationSelect.appendChild(option);
+            });
+            
+            // Enable animation controls
+            animationSelect.disabled = false;
+            playBtn.disabled = false;
+            pauseBtn.disabled = false;
+            stopBtn.disabled = false;
+            loopToggle.disabled = false;
+            animSpeedSlider.disabled = false;
+            
+            // Select first animation
+            animationSelect.value = 0;
+            selectAnimation();
+            
+            // Update model type
+            modelTypeDisplay.textContent = 'Animated';
+        }
+        
+        // Disable animation controls
+        function disableAnimationControls() {
+            animationSelect.innerHTML = '<option value="">No animations</option>';
+            animationSelect.disabled = true;
+            playBtn.disabled = true;
+            pauseBtn.disabled = true;
+            stopBtn.disabled = true;
+            loopToggle.disabled = true;
+            animSpeedSlider.disabled = true;
+            animationProgress.style.width = '0%';
+            modelTypeDisplay.textContent = 'Static';
+        }
+        
+        // Play current animation
+        function playAnimation() {
+            if (!currentAnimation || !mixer) return;
+            
+            if (currentAnimation.paused) {
+                currentAnimation.paused = false;
+                mixer.timeScale = animationSpeed;
+            } else {
+                currentAnimation.reset();
+                currentAnimation.play();
+            }
+            
+            isPlaying = true;
+            playBtn.textContent = '▶ Playing';
+            pauseBtn.textContent = '⏸ Pause';
+        }
+        
+        // Pause current animation
+        function pauseAnimation() {
+            if (!currentAnimation || !mixer) return;
+            
+            currentAnimation.paused = true;
+            isPlaying = false;
+            playBtn.textContent = '▶ Play';
+            pauseBtn.textContent = '⏸ Paused';
+        }
+        
+        // Stop current animation
+        function stopAnimation() {
+            if (!currentAnimation || !mixer) return;
+            
+            currentAnimation.stop();
+            isPlaying = false;
+            playBtn.textContent = '▶ Play';
+            pauseBtn.textContent = '⏸ Pause';
+            animationProgress.style.width = '0%';
+        }
+        
+        // Toggle animation looping
+        function toggleLoop() {
+            if (!currentAnimation) return;
+            
+            isLooping = !isLooping;
+            currentAnimation.loop = isLooping ? THREE.LoopRepeat : THREE.LoopOnce;
+            loopToggle.textContent = isLooping ? '🔁 Loop: On' : '🔁 Loop: Off';
+        }
+        
+        // Update animation speed
+        function updateAnimationSpeed(e) {
+            animationSpeed = parseFloat(e.target.value);
+            animSpeedValue.textContent = `${animationSpeed.toFixed(1)}x`;
+            
+            if (mixer) {
+                mixer.timeScale = animationSpeed;
+            }
+        }
+        
+        // Select animation from dropdown
+        function selectAnimation() {
+            if (!mixer || animations.length === 0) return;
+            
+            const index = parseInt(animationSelect.value);
+            if (isNaN(index) || index >= animations.length) return;
+            
+            // Stop current animation
+            if (currentAnimation) {
+                currentAnimation.stop();
+            }
+            
+            // Create new animation action
+            const clip = animations[index];
+            currentAnimation = mixer.clipAction(clip);
+            currentAnimation.clip = clip;
+            
+            // Set looping
+            currentAnimation.loop = isLooping ? THREE.LoopRepeat : THREE.LoopOnce;
+            
+            // Reset and stop
+            currentAnimation.reset();
+            currentAnimation.stop();
+            
+            isPlaying = false;
+            playBtn.textContent = '▶ Play';
+            pauseBtn.textContent = '⏸ Pause';
+            animationProgress.style.width = '0%';
+        }
+        
+        // Update model information
+        function updateModelInfo(filename) {
+            if (!model) return;
+            
+            let vertexCount = 0;
+            let triangleCount = 0;
+            let boneCount = 0;
+            let boneNames = [];
+            let hasSkeleton = false;
+            
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    const geometry = child.geometry;
+                    
+                    // Count vertices
+                    if (geometry.attributes.position) {
+                        vertexCount += geometry.attributes.position.count;
+                    }
+                    
+                    // Count triangles
+                    if (geometry.index) {
+                        triangleCount += geometry.index.count / 3;
+                    } else if (geometry.attributes.position) {
+                        triangleCount += geometry.attributes.position.count / 3;
+                    }
+                    
+                    // Check for skeleton
+                    if (child.skeleton) {
+                        hasSkeleton = true;
+                        boneCount = child.skeleton.bones.length;
+                        boneNames = child.skeleton.bones.map(bone => bone.name);
+                    }
+                }
+                
+                // Also check for bones in the hierarchy
+                if (child.isBone) {
+                    boneCount++;
+                    if (!boneNames.includes(child.name)) {
+                        boneNames.push(child.name);
+                    }
+                }
+            });
+            
+            // Update displays
+            vertexCountDisplay.textContent = vertexCount.toLocaleString();
+            triangleCountDisplay.textContent = triangleCount.toLocaleString();
+            riggedStatusDisplay.textContent = hasSkeleton ? 'Yes' : 'No';
+            boneCountDisplay.textContent = boneCount;
+            
+            // Update bones list
+            if (hasSkeleton && boneCount > 0) {
+                bonesContainer.classList.remove('hidden');
+                bonesList.innerHTML = '';
+                
+                boneNames.slice(0, 10).forEach(name => {
+                    const div = document.createElement('div');
+                    div.className = 'bone-item';
+                    div.innerHTML = `
+                        <span class="bone-name">${name}</span>
+                    `;
+                    bonesList.appendChild(div);
+                });
+                
+                if (boneCount > 10) {
+                    const div = document.createElement('div');
+                    div.className = 'bone-item';
+                    div.innerHTML = `
+                        <span class="bone-name">... and ${boneCount - 10} more</span>
+                    `;
+                    bonesList.appendChild(div);
+                }
+            } else {
+                bonesContainer.classList.add('hidden');
+            }
+        }
+        
+        // Update light intensity
+        function updateLightIntensity(intensity) {
+            scene.traverse((child) => {
+                if (child.isLight) {
+                    if (child.isAmbientLight) {
+                        child.intensity = intensity * 0.6;
+                    } else {
+                        child.intensity = intensity;
+                    }
+                }
+            });
+        }
+        
+        // Toggle lights
+        function toggleLights() {
+            let lightsOn = lightsToggleBtn.textContent.includes('On');
+            lightsOn = !lightsOn;
+            
+            scene.traverse((child) => {
+                if (child.isLight) {
+                    child.visible = lightsOn;
+                }
+            });
+            
+            lightsToggleBtn.textContent = lightsOn ? '💡 Lights: On' : '💡 Lights: Off';
+        }
+        
+        // Toggle shadows
+        function toggleShadows() {
+            renderer.shadowMap.enabled = !renderer.shadowMap.enabled;
+            const isEnabled = renderer.shadowMap.enabled;
+            
+            scene.traverse((child) => {
+                if (child.isLight) {
+                    child.castShadow = isEnabled;
+                }
+            });
+            
+            shadowsToggleBtn.textContent = isEnabled ? '🌓 Shadows: On' : '🌓 Shadows: Off';
+        }
+        
+        // Toggle wireframe
+        function toggleWireframe() {
+            if (!model) return;
+            
+            let isWireframe = wireframeBtn.textContent === '📐 Solid';
+            isWireframe = !isWireframe;
+            
+            model.traverse((child) => {
+                if (child.isMesh) {
+                    if (Array.isArray(child.material)) {
+                        child.material.forEach(m => m.wireframe = isWireframe);
+                    } else {
+                        child.material.wireframe = isWireframe;
+                    }
+                }
+            });
+            
+            wireframeBtn.textContent = isWireframe ? '📐 Solid' : '📐 Wireframe';
+        }
+        
+        // Reset view
+        function resetView() {
+            controls.reset();
+            centerAndScaleModel();
+        }
+        
+        // Update status indicator
+        function updateStatus(message, type = 'ready') {
+            statusText.textContent = message;
+            statusIndicator.className = 'status-indicator';
+            
+            switch(type) {
+                case 'ready':
+                    statusIndicator.style.background = '#4CAF50';
+                    break;
+                case 'loading':
+                    statusIndicator.classList.add('loading');
+                    break;
+                case 'error':
+                    statusIndicator.classList.add('error');
+                    break;
+            }
+        }
+        
+        // Handle window resize
+        function onWindowResize() {
+            camera.aspect = viewerContainer.clientWidth / viewerContainer.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
+        }
+        
+        // Animation loop
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Update animation mixer
+            if (mixer) {
+                const delta = clock.getDelta();
+                mixer.update(delta);
+                
+                // Update progress bar
+                if (currentAnimation && currentAnimation.time !== undefined) {
+                    const progress = (currentAnimation.time % currentAnimation.clip.duration) / currentAnimation.clip.duration * 100;
+                    animationProgress.style.width = `${progress}%`;
+                }
+            }
+            
+            // Update controls
+            controls.update();
+            
+            // Render the scene
+            renderer.render(scene, camera);
+        }
+        
+        // Initialize the app when the page loads
+        window.addEventListener('DOMContentLoaded', init);
+    </script>
+</body>
+</html>
