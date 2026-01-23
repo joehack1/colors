@@ -583,6 +583,10 @@
                         <span class="info-value" id="model-format">GLB</span>
                     </div>
                     <div class="info-item">
+                        <span class="info-label">TYPE</span>
+                        <span class="info-value" id="model-type">STATIC</span>
+                    </div>
+                    <div class="info-item">
                         <span class="info-label">VERTS</span>
                         <span class="info-value" id="vertex-count">24</span>
                     </div>
@@ -795,9 +799,10 @@
         const lightsToggleBtn = document.getElementById('lights-toggle');
         const shadowsToggleBtn = document.getElementById('shadows-toggle');
         
-        // Model info displays
+        // Model info displays - ALL VARIABLES PROPERLY DEFINED
         const modelNameDisplay = document.getElementById('model-name');
         const modelFormatDisplay = document.getElementById('model-format');
+        const modelTypeDisplay = document.getElementById('model-type'); // FIXED: This was missing
         const vertexCountDisplay = document.getElementById('vertex-count');
         const triangleCountDisplay = document.getElementById('triangle-count');
         const riggedStatusDisplay = document.getElementById('rigged-status');
@@ -830,7 +835,7 @@
             renderer = new THREE.WebGLRenderer({ 
                 antialias: true, 
                 alpha: true,
-                logarithmicDepthBuffer: true // Better depth handling for large scenes
+                logarithmicDepthBuffer: true
             });
             renderer.setSize(viewerContainer.clientWidth, viewerContainer.clientHeight);
             renderer.shadowMap.enabled = true;
@@ -838,7 +843,7 @@
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             viewerContainer.appendChild(renderer.domElement);
             
-            // Add orbit controls with adjusted min/max distance for large models
+            // Add orbit controls
             controls = new THREE.OrbitControls(camera, renderer.domElement);
             controls.enableDamping = true;
             controls.dampingFactor = 0.05;
@@ -846,7 +851,7 @@
             controls.maxDistance = 5000;
             controls.maxPolarAngle = Math.PI;
             
-            // Initialize Draco loader for compressed GLTF files
+            // Initialize Draco loader
             dracoLoader = new THREE.DRACOLoader();
             dracoLoader.setDecoderPath('https://www.gstatic.com/draco/versioned/decoders/1.5.5/');
             
@@ -874,7 +879,6 @@
         
         // Create floor grid
         function createFloor() {
-            // Create a large dark floor grid
             const gridSize = 200;
             const gridDivisions = 100;
             const gridHelper = new THREE.GridHelper(gridSize, gridDivisions, 0x111111, 0x111111);
@@ -883,7 +887,6 @@
             gridHelper.position.y = -5;
             scene.add(gridHelper);
             
-            // Create a subtle ground plane for shadows
             const groundGeometry = new THREE.PlaneGeometry(gridSize, gridSize);
             const groundMaterial = new THREE.ShadowMaterial({ 
                 opacity: 0.15,
@@ -900,11 +903,9 @@
         
         // Setup lighting
         function setupLighting() {
-            // Ambient light - very subtle
             const ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
             scene.add(ambientLight);
             
-            // Main directional light
             const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
             directionalLight.position.set(10, 30, 15);
             directionalLight.castShadow = true;
@@ -918,12 +919,10 @@
             directionalLight.shadow.camera.bottom = -100;
             scene.add(directionalLight);
             
-            // Fill light from opposite side
             const fillLight = new THREE.DirectionalLight(0x4466ff, 0.2);
             fillLight.position.set(-10, 10, -15);
             scene.add(fillLight);
             
-            // Add rim light for better definition
             const rimLight = new THREE.DirectionalLight(0xffffff, 0.3);
             rimLight.position.set(0, 20, -20);
             scene.add(rimLight);
@@ -931,13 +930,10 @@
         
         // Set up all event listeners
         function setupEventListeners() {
-            // File input button
             fileInputBtn.addEventListener('click', () => fileInput.click());
             
-            // File input change
             fileInput.addEventListener('change', handleFileSelect);
             
-            // Drop area events
             dropArea.addEventListener('dragover', (e) => {
                 e.preventDefault();
                 dropArea.style.borderColor = '#64a0ff';
@@ -959,7 +955,6 @@
                 }
             });
             
-            // Collapse button
             collapseBtn.addEventListener('click', () => {
                 const panel = document.querySelector('.controls-panel');
                 panel.classList.toggle('collapsed');
@@ -967,7 +962,6 @@
                 collapseBtn.title = panel.classList.contains('collapsed') ? 'Expand panel' : 'Collapse panel';
             });
             
-            // Sample models
             document.querySelectorAll('.sample-model').forEach(btn => {
                 btn.addEventListener('click', () => {
                     const modelType = btn.getAttribute('data-model');
@@ -975,12 +969,10 @@
                 });
             });
             
-            // Scale controls
             modelScaleSlider.addEventListener('input', updateModelScale);
             autoScaleBtn.addEventListener('click', autoScaleModel);
             resetScaleBtn.addEventListener('click', resetModelScale);
             
-            // Animation controls
             playBtn.addEventListener('click', playAnimation);
             pauseBtn.addEventListener('click', pauseAnimation);
             stopBtn.addEventListener('click', stopAnimation);
@@ -988,7 +980,6 @@
             animSpeedSlider.addEventListener('input', updateAnimationSpeed);
             animationSelect.addEventListener('change', selectAnimation);
             
-            // View controls
             rotationSpeedSlider.addEventListener('input', (e) => {
                 rotationValue.textContent = parseFloat(e.target.value).toFixed(1);
             });
@@ -1003,7 +994,6 @@
             wireframeBtn.addEventListener('click', toggleWireframe);
             resetViewBtn.addEventListener('click', resetView);
             
-            // Lighting controls
             lightIntensitySlider.addEventListener('input', (e) => {
                 const value = parseFloat(e.target.value);
                 lightValue.textContent = value.toFixed(1);
@@ -1013,7 +1003,6 @@
             lightsToggleBtn.addEventListener('click', toggleLights);
             shadowsToggleBtn.addEventListener('click', toggleShadows);
             
-            // Bone controls
             showBonesBtn.addEventListener('click', toggleBoneVisualization);
             selectBoneBtn.addEventListener('click', selectFirstBone);
             resetBonesBtn.addEventListener('click', resetAllBones);
@@ -1024,7 +1013,6 @@
                 slider.addEventListener('input', updateBoneSliderValue);
             });
             
-            // Mouse cursor styles
             renderer.domElement.addEventListener('mousedown', () => {
                 viewerContainer.classList.add('grabbing');
             });
@@ -1034,12 +1022,11 @@
             });
         }
         
-        // Handle file selection for both GLB and GLTF
+        // Handle file selection
         function handleFileSelect(event) {
             const file = event.target.files[0];
             if (!file) return;
             
-            // Check if it's a supported file
             const fileName = file.name.toLowerCase();
             const isGLB = fileName.endsWith('.glb');
             const isGLTF = fileName.endsWith('.gltf');
@@ -1051,28 +1038,23 @@
                 return;
             }
             
-            // Show loading overlay
             loadingOverlay.classList.remove('hidden');
             loadingText.textContent = `LOADING ${file.name}`;
             loadingDetails.textContent = isGLB ? 'GLB format' : 'GLTF format';
             updateStatus('LOADING...', 'loading');
             
-            // Update format badge
             currentModelFormat = isGLB ? 'GLB' : 'GLTF';
             modelFormatDisplay.textContent = currentModelFormat;
             formatBadge.textContent = currentModelFormat;
             formatBadge.classList.remove('hidden');
             
-            // Reset texture warning
             textureWarning.classList.add('hidden');
             
-            // Create loader with Draco support
             const loader = new THREE.GLTFLoader();
             if (dracoLoader) {
                 loader.setDRACOLoader(dracoLoader);
             }
             
-            // Load the file based on type
             if (isGLB) {
                 loadGLBFile(file, loader);
             } else {
@@ -1080,7 +1062,7 @@
             }
         }
         
-        // Load GLB file (binary format)
+        // Load GLB file
         function loadGLBFile(file, loader) {
             const reader = new FileReader();
             
@@ -1112,7 +1094,7 @@
             reader.readAsArrayBuffer(file);
         }
         
-        // Load GLTF file (JSON + separate resources)
+        // Load GLTF file
         function loadGLTFFile(file, loader) {
             const reader = new FileReader();
             
@@ -1121,11 +1103,8 @@
                     const text = e.target.result;
                     const gltf = JSON.parse(text);
                     
-                    // For GLTF files, we need to handle embedded resources
                     if (gltf.buffers && gltf.buffers[0] && gltf.buffers[0].uri) {
-                        // Check if it's data URI (embedded) or external file
                         if (gltf.buffers[0].uri.startsWith('data:')) {
-                            // Embedded data - parse directly
                             loader.parse(
                                 gltf,
                                 '',
@@ -1140,12 +1119,10 @@
                                 }
                             );
                         } else {
-                            // External resources - show warning
                             updateStatus('EXTERNAL RESOURCES', 'loading');
                             loadingDetails.textContent = 'May need external files';
                             textureWarning.classList.remove('hidden');
                             
-                            // Try to load anyway
                             const objectURL = URL.createObjectURL(file);
                             loader.load(
                                 objectURL,
@@ -1167,7 +1144,6 @@
                             );
                         }
                     } else {
-                        // No buffers or inline data
                         loader.parse(
                             gltf,
                             '',
@@ -1200,16 +1176,13 @@
             reader.readAsText(file);
         }
         
-        // Handle loaded model (both GLB and GLTF)
+        // Handle loaded model
         function handleLoadedModel(gltf, filename) {
-            // Clear previous model and animations
             clearModel();
             
-            // Add new model to scene
             model = gltf.scene;
             scene.add(model);
             
-            // Enable shadows for all meshes
             model.traverse((child) => {
                 if (child.isMesh) {
                     child.castShadow = true;
@@ -1217,12 +1190,10 @@
                 }
             });
             
-            // Auto-scale model to fit view
             autoScaleModel();
             originalScale = model.scale.x;
             updateScaleValue(originalScale);
             
-            // Handle animations
             if (gltf.animations && gltf.animations.length > 0) {
                 setupAnimations(gltf.animations);
                 updateStatus(`LOADED ${gltf.animations.length} ANIM(S)`, 'ready');
@@ -1231,10 +1202,7 @@
                 updateStatus('MODEL LOADED', 'ready');
             }
             
-            // Update model info
             updateModelInfo(filename, gltf);
-            
-            // Hide loading overlay
             loadingOverlay.classList.add('hidden');
         }
         
@@ -1270,7 +1238,6 @@
                     break;
                     
                 case 'armature':
-                    // Create a simple armature with bones
                     const armature = createSampleArmature();
                     model = armature;
                     modelNameDisplay.textContent = 'Armature';
@@ -1292,11 +1259,10 @@
             updateStatus('SAMPLE LOADED', 'ready');
         }
         
-        // Create a sample armature with bones
+        // Create a sample armature
         function createSampleArmature() {
             const group = new THREE.Group();
             
-            // Create bones
             const bone1 = new THREE.Bone();
             const bone2 = new THREE.Bone();
             const bone3 = new THREE.Bone();
@@ -1308,10 +1274,8 @@
             bone1.add(bone2);
             bone2.add(bone3);
             
-            // Create skeleton
             const skeleton = new THREE.Skeleton([bone1, bone2, bone3]);
             
-            // Create geometry for visualization
             const geometry = new THREE.CylinderGeometry(0.1, 0.1, 2, 8);
             const material = new THREE.MeshBasicMaterial({ 
                 color: 0x44ff66,
@@ -1332,22 +1296,18 @@
             return group;
         }
         
-        // Clear the current model and animations
+        // Clear the current model
         function clearModel() {
-            // Stop any playing animation
             stopAnimation();
             
-            // Remove bone visualization
             if (skeletonHelper) {
                 scene.remove(skeletonHelper);
                 skeletonHelper = null;
             }
             
-            // Remove model from scene
             if (model) {
                 scene.remove(model);
                 
-                // Dispose of geometry, materials, and textures
                 model.traverse((child) => {
                     if (child.isMesh) {
                         if (child.geometry) {
@@ -1379,7 +1339,6 @@
                 model = null;
             }
             
-            // Clear animation mixer
             if (mixer) {
                 mixer.stopAllAction();
                 mixer = null;
@@ -1390,12 +1349,11 @@
             selectedBone = null;
             textureCount = 0;
             
-            // Hide bone controls
             bonesContainer.classList.add('hidden');
             textureCountDisplay.textContent = '0';
         }
         
-        // Auto-scale model to fit view
+        // Auto-scale model
         function autoScaleModel() {
             if (!model) return;
             
@@ -1403,37 +1361,30 @@
             const size = box.getSize(new THREE.Vector3());
             const center = box.getCenter(new THREE.Vector3());
             
-            // Calculate scale to fit in view
             const maxDim = Math.max(size.x, size.y, size.z);
             let scale = 8 / maxDim;
             
-            // Adjust for very small or very large models
             if (maxDim < 0.01) scale *= 100;
             if (maxDim < 0.1) scale *= 10;
             if (maxDim > 100) scale *= 0.1;
             if (maxDim > 1000) scale *= 0.01;
             
-            // Clamp scale
             scale = Math.max(0.01, Math.min(scale, 100));
             
             model.scale.setScalar(scale);
             originalScale = scale;
             
-            // Center model
             const worldPosition = new THREE.Vector3();
             model.getWorldPosition(worldPosition);
             model.position.sub(center);
             model.position.y -= (box.min.y - floor.position.y) * scale;
             
-            // Update controls target
             controls.target.copy(center);
             controls.update();
             
-            // Update scale slider
             modelScaleSlider.value = scale;
             updateScaleValue(scale);
             
-            // Adjust camera distance based on model size
             const fov = camera.fov * (Math.PI / 180);
             const distance = Math.max(maxDim * scale * 2, 5);
             const cameraHeight = Math.max(maxDim * scale * 0.5, 3);
@@ -1441,7 +1392,7 @@
             controls.update();
         }
         
-        // Update model scale from slider
+        // Update model scale
         function updateModelScale(e) {
             if (!model) return;
             
@@ -1450,7 +1401,7 @@
             updateScaleValue(scale);
         }
         
-        // Reset model scale to original
+        // Reset model scale
         function resetModelScale() {
             if (!model) return;
             
@@ -1468,10 +1419,8 @@
         function setupAnimations(animationClips) {
             animations = animationClips;
             
-            // Create animation mixer
             mixer = new THREE.AnimationMixer(model);
             
-            // Populate animation select dropdown
             animationSelect.innerHTML = '';
             animations.forEach((clip, index) => {
                 const option = document.createElement('option');
@@ -1480,7 +1429,6 @@
                 animationSelect.appendChild(option);
             });
             
-            // Enable animation controls
             animationSelect.disabled = false;
             playBtn.disabled = false;
             pauseBtn.disabled = false;
@@ -1488,16 +1436,14 @@
             loopToggle.disabled = false;
             animSpeedSlider.disabled = false;
             
-            // Select first animation
             animationSelect.value = 0;
             selectAnimation();
             
-            // Update model type
             modelTypeDisplay.textContent = 'ANIMATED';
             animationCountDisplay.textContent = animations.length;
         }
         
-        // Disable animation controls
+        // Disable animation controls - NOW FIXED
         function disableAnimationControls() {
             animationSelect.innerHTML = '<option value="">NO ANIMS</option>';
             animationSelect.disabled = true;
@@ -1590,7 +1536,6 @@
             let bones = [];
             textureCount = 0;
             
-            // Count textures
             const textureSet = new Set();
             
             model.traverse((child) => {
@@ -1614,7 +1559,6 @@
                         boneNames = bones.map(bone => bone.name || 'Unnamed');
                     }
                     
-                    // Count textures
                     if (child.material) {
                         const materials = Array.isArray(child.material) ? child.material : [child.material];
                         materials.forEach(material => {
@@ -1640,7 +1584,6 @@
             
             textureCount = textureSet.size;
             
-            // Update displays
             modelNameDisplay.textContent = filename.length > 15 ? filename.substring(0, 12) + '...' : filename;
             vertexCountDisplay.textContent = vertexCount.toLocaleString();
             triangleCountDisplay.textContent = triangleCount.toLocaleString();
@@ -1648,13 +1591,11 @@
             boneCountDisplay.textContent = boneCount;
             textureCountDisplay.textContent = textureCount;
             
-            // Update badge
             modelBadge.textContent = hasSkeleton ? 'RIGGED' : (textureCount > 0 ? 'TEXTURED' : 'STATIC');
             modelBadge.style.background = hasSkeleton ? 
                 'rgba(100, 255, 100, 0.15)' : 
                 (textureCount > 0 ? 'rgba(255, 200, 100, 0.15)' : 'rgba(100, 160, 255, 0.15)');
             
-            // Update bones list
             if (hasSkeleton && boneCount > 0) {
                 bonesContainer.classList.remove('hidden');
                 updateBonesList(bones);
@@ -1735,7 +1676,6 @@
         function selectBone(bone, index) {
             selectedBone = bone;
             
-            // Highlight in list
             const boneItems = bonesList.querySelectorAll('.bone-item');
             boneItems.forEach(item => {
                 item.classList.remove('selected');
@@ -1758,14 +1698,13 @@
                 }
             });
             
-            // Reset sliders
             boneSliders.forEach(slider => {
                 slider.value = 0;
             });
         }
         
         function updateBoneSliderValue(e) {
-            // Just update the slider position, don't apply yet
+            // Just update the slider position
         }
         
         function applyBoneRotation() {
@@ -1891,26 +1830,20 @@
         function animate() {
             requestAnimationFrame(animate);
             
-            // Update animation mixer
             if (mixer) {
                 const delta = clock.getDelta();
                 mixer.update(delta);
                 
-                // Update progress bar
                 if (currentAnimation && currentAnimation.time !== undefined && currentAnimation.clip) {
                     const progress = (currentAnimation.time % currentAnimation.clip.duration) / currentAnimation.clip.duration * 100;
                     animationProgress.style.width = `${progress}%`;
                 }
             }
             
-            // Update controls
             controls.update();
-            
-            // Render the scene
             renderer.render(scene, camera);
         }
         
-        // Initialize the app when the page loads
         window.addEventListener('DOMContentLoaded', init);
     </script>
 </body>
