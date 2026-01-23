@@ -185,14 +185,20 @@
             rightEye.position.set(0.05, 1.68, 0.13);
             character.add(rightEye);
 
+            // Mouth
+            const mouthGeometry = new THREE.TorusGeometry(0.03, 0.005, 8, 12, Math.PI);
+            const mouthMaterial = new THREE.MeshStandardMaterial({ color: 0x9B4F4F, roughness: 0.8 });
+            const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
+            mouth.position.set(0, 1.61, 0.145);
+            mouth.rotation.z = Math.PI;
+            character.add(mouth);
+
             // Torso
             const torso = new THREE.Mesh(
                 new THREE.BoxGeometry(0.35, 0.5, 0.2),
-                new THREE.CylinderGeometry(0.18, 0.14, 0.5, 24),
                 shirtMaterial
             );
             torso.position.y = 1.25;
-            torso.scale.z = 0.6;
             torso.castShadow = true;
             character.add(torso);
             bodyParts.torso = torso;
@@ -202,11 +208,6 @@
             leftArmGroup.position.set(-0.22, 1.45, 0);
             character.add(leftArmGroup);
             bodyParts.leftArmGroup = leftArmGroup;
-
-            const shoulderGeometry = new THREE.SphereGeometry(0.06, 16, 16);
-            const leftShoulder = new THREE.Mesh(shoulderGeometry, shirtMaterial);
-            leftShoulder.castShadow = true;
-            leftArmGroup.add(leftShoulder);
 
             const leftUpperArm = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.04, 0.04, 0.4),
@@ -242,10 +243,6 @@
             rightArmGroup.position.set(0.22, 1.45, 0);
             character.add(rightArmGroup);
             bodyParts.rightArmGroup = rightArmGroup;
-
-            const rightShoulder = new THREE.Mesh(shoulderGeometry, shirtMaterial);
-            rightShoulder.castShadow = true;
-            rightArmGroup.add(rightShoulder);
 
             const rightUpperArm = new THREE.Mesh(
                 new THREE.CylinderGeometry(0.04, 0.04, 0.4),
@@ -493,7 +490,6 @@
             
             const breathe = Math.sin(t * 0.3) * 0.03;
             bodyParts.torso.scale.z = 1 + breathe;
-            bodyParts.torso.scale.z = 0.6 * (1 + breathe);
         }
 
         function animateDance(t) {
@@ -545,7 +541,6 @@
             bodyParts.leftArmGroup.position.set(-0.22, 1.45, 0);
             bodyParts.rightArmGroup.position.set(0.22, 1.45, 0);
             bodyParts.torso.scale.set(1, 1, 1);
-            bodyParts.torso.scale.set(1, 1, 0.6);
             
             // Update UI
             document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
