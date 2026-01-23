@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Animated 3D Person</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: 'Arial', sans-serif;
+        }
+        #canvas {
+            display: block;
+            width: 100%;
+            height: 100vh;
+        }
+        #controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 20px;
+            border-radius: 12px;
+            color: #fff;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+        h3 {
+            margin: 0 0 15px 0;
+            font-size: 18px;
+            color: #fff;
+        }
+        .button-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: bold;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        button.active {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            box-shadow: 0 4px 15px rgba(245, 87, 108, 0.5);
+        }
+        .info {
+            font-size: 12px;
+            opacity: 0.8;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid rgba(255, 255, 255, 0.2);
+        }
+    </style>
+</head>
+<body>
+    <canvas id="canvas"></canvas>
+    <div id="controls">
+        <h3>🎮 Character Controls</h3>
+        <div class="button-grid">
+            <button id="btnIdle" class="active" onclick="setAnimation('idle')">🧍 Idle</button>
+            <button id="btnWalk" onclick="setAnimation('walk')">🚶 Walk</button>
+            <button id="btnRun" onclick="setAnimation('run')">🏃 Run</button>
+            <button id="btnJump" onclick="setAnimation('jump')">🦘 Jump</button>
+            <button id="btnSit" onclick="setAnimation('sit')">🪑 Sit</button>
+            <button id="btnSleep" onclick="setAnimation('sleep')">😴 Sleep</button>
+            <button id="btnDance" onclick="setAnimation('dance')">💃 Dance</button>
+        </div>
+        <div class="info">
+            Current: <span id="currentAction">Idle</span><br>
+            Click buttons to change animation
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        let scene, camera, renderer;
+        let character;
+        let currentAnimation = 'idle';
+        let animationTime = 0;
+        let bodyParts = {};
+
+        function init() {
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x87ceeb);
+            scene.fog = new THREE.Fog(0x87ceeb, 10, 50);
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 2, 5);
+            camera.lookAt(0, 1, 0);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas'), antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            dirLight.position.set(5, 10, 5);
+            dirLight.castShadow = true;
+            dirLight.shadow.camera.left = -10;
+            dirLight.shadow.camera.right = 10;
+            dirLight.shadow.camera.top = 10;
+            dirLight.shadow.camera.bottom = -10;
+            scene.add(dirLight);
+
+            // Ground
+            const groundGeometry = new THREE.PlaneGeometry(20, 20);
+            const groundMaterial = new THREE.MeshStandardMaterial({ 
+                color: 0x7ec850,
+                roughness: 0.8
+            });
+            const ground = new THREE.Mesh(groundGeometry, groundMaterial);
+            ground.rotation.x = -Math.PI / 2;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Create character
+            createCharacter();
+
+            // Events
+            window.addEventListener('resize', onWindowResize);
+
+            // Start animation
+            animate();
+        }
+
+        function createCharacter() {
+            character = new THREE.Group();
+            
+            // Materials
+            const skinMaterial = new THREE.MeshStandardMaterial({ color: 0xffdbac });
+            const shirtMaterial = new THREE.MeshStandardMaterial({ color: 0x4a90e2 });
+            const pantsMaterial = new THREE.MeshStandardMaterial({ color: 0x2c3e50 });
+            const shoeMaterial = new THREE.MeshStandardMaterial({ color: 0x34495e });
+            const hairMaterial = new THREE.MeshStandardMaterial({ color: 0x3d2817 });
+
+            // Head
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.15, 16, 16),
+                skinMaterial
+            );
+            head.position.y = 1.65;
+            head.castShadow = true;
+            character.add(head);
+            bodyParts.head = head;
+
+            // Hair
+            const hair = new THREE.Mesh(
+                new THREE.SphereGeometry(0.16, 16, 16, 0, Math.PI * 2, 0, Math.PI * 0.6),
+                hairMaterial
+            );
+            hair.position.y = 1.72;
+            hair.castShadow = true;
+            character.add(hair);
+
+            // Eyes
+            const eyeGeometry = new THREE.SphereGeometry(0.02, 8, 8);
+            const eyeMaterial = new THREE.MeshStandardMaterial({ color: 0x000000 });
+            
+            const leftEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            leftEye.position.set(-0.05, 1.68, 0.13);
+            character.add(leftEye);
+            
+            const rightEye = new THREE.Mesh(eyeGeometry, eyeMaterial);
+            rightEye.position.set(0.05, 1.68, 0.13);
+            character.add(rightEye);
+
+            // Torso
+            const torso = new THREE.Mesh(
+                new THREE.BoxGeometry(0.35, 0.5, 0.2),
+                new THREE.CylinderGeometry(0.18, 0.14, 0.5, 24),
+                shirtMaterial
+            );
+            torso.position.y = 1.25;
+            torso.scale.z = 0.6;
+            torso.castShadow = true;
+            character.add(torso);
+            bodyParts.torso = torso;
+
+            // Arms with pivot groups
+            const leftArmGroup = new THREE.Group();
+            leftArmGroup.position.set(-0.22, 1.45, 0);
+            character.add(leftArmGroup);
+            bodyParts.leftArmGroup = leftArmGroup;
+
+            const shoulderGeometry = new THREE.SphereGeometry(0.06, 16, 16);
+            const leftShoulder = new THREE.Mesh(shoulderGeometry, shirtMaterial);
+            leftShoulder.castShadow = true;
+            leftArmGroup.add(leftShoulder);
+
+            const leftUpperArm = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.04, 0.04, 0.4),
+                shirtMaterial
+            );
+            leftUpperArm.position.y = -0.2;
+            leftUpperArm.castShadow = true;
+            leftArmGroup.add(leftUpperArm);
+
+            const leftElbowGroup = new THREE.Group();
+            leftElbowGroup.position.set(0, -0.4, 0);
+            leftArmGroup.add(leftElbowGroup);
+            bodyParts.leftElbowGroup = leftElbowGroup;
+
+            const leftLowerArm = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.035, 0.035, 0.35),
+                skinMaterial
+            );
+            leftLowerArm.position.y = -0.175;
+            leftLowerArm.castShadow = true;
+            leftElbowGroup.add(leftLowerArm);
+
+            const leftHand = new THREE.Mesh(
+                new THREE.SphereGeometry(0.04, 8, 8),
+                skinMaterial
+            );
+            leftHand.position.y = -0.35;
+            leftHand.castShadow = true;
+            leftElbowGroup.add(leftHand);
+
+            // Right arm
+            const rightArmGroup = new THREE.Group();
+            rightArmGroup.position.set(0.22, 1.45, 0);
+            character.add(rightArmGroup);
+            bodyParts.rightArmGroup = rightArmGroup;
+
+            const rightShoulder = new THREE.Mesh(shoulderGeometry, shirtMaterial);
+            rightShoulder.castShadow = true;
+            rightArmGroup.add(rightShoulder);
+
+            const rightUpperArm = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.04, 0.04, 0.4),
+                shirtMaterial
+            );
+            rightUpperArm.position.y = -0.2;
+            rightUpperArm.castShadow = true;
+            rightArmGroup.add(rightUpperArm);
+
+            const rightElbowGroup = new THREE.Group();
+            rightElbowGroup.position.set(0, -0.4, 0);
+            rightArmGroup.add(rightElbowGroup);
+            bodyParts.rightElbowGroup = rightElbowGroup;
+
+            const rightLowerArm = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.035, 0.035, 0.35),
+                skinMaterial
+            );
+            rightLowerArm.position.y = -0.175;
+            rightLowerArm.castShadow = true;
+            rightElbowGroup.add(rightLowerArm);
+
+            const rightHand = new THREE.Mesh(
+                new THREE.SphereGeometry(0.04, 8, 8),
+                skinMaterial
+            );
+            rightHand.position.y = -0.35;
+            rightHand.castShadow = true;
+            rightElbowGroup.add(rightHand);
+
+            // Left leg with hip and knee joints
+            const leftHipGroup = new THREE.Group();
+            leftHipGroup.position.set(-0.1, 1.0, 0);
+            character.add(leftHipGroup);
+            bodyParts.leftHipGroup = leftHipGroup;
+
+            const leftUpperLeg = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.06, 0.055, 0.5),
+                pantsMaterial
+            );
+            leftUpperLeg.position.y = -0.25;
+            leftUpperLeg.castShadow = true;
+            leftHipGroup.add(leftUpperLeg);
+
+            const leftKneeGroup = new THREE.Group();
+            leftKneeGroup.position.set(0, -0.5, 0);
+            leftHipGroup.add(leftKneeGroup);
+            bodyParts.leftKneeGroup = leftKneeGroup;
+
+            const leftLowerLeg = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05, 0.045, 0.45),
+                pantsMaterial
+            );
+            leftLowerLeg.position.y = -0.225;
+            leftLowerLeg.castShadow = true;
+            leftKneeGroup.add(leftLowerLeg);
+
+            const leftFoot = new THREE.Mesh(
+                new THREE.BoxGeometry(0.08, 0.05, 0.15),
+                shoeMaterial
+            );
+            leftFoot.position.set(0, -0.475, 0.03);
+            leftFoot.castShadow = true;
+            leftKneeGroup.add(leftFoot);
+
+            // Right leg with hip and knee joints
+            const rightHipGroup = new THREE.Group();
+            rightHipGroup.position.set(0.1, 1.0, 0);
+            character.add(rightHipGroup);
+            bodyParts.rightHipGroup = rightHipGroup;
+
+            const rightUpperLeg = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.06, 0.055, 0.5),
+                pantsMaterial
+            );
+            rightUpperLeg.position.y = -0.25;
+            rightUpperLeg.castShadow = true;
+            rightHipGroup.add(rightUpperLeg);
+
+            const rightKneeGroup = new THREE.Group();
+            rightKneeGroup.position.set(0, -0.5, 0);
+            rightHipGroup.add(rightKneeGroup);
+            bodyParts.rightKneeGroup = rightKneeGroup;
+
+            const rightLowerLeg = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05, 0.045, 0.45),
+                pantsMaterial
+            );
+            rightLowerLeg.position.y = -0.225;
+            rightLowerLeg.castShadow = true;
+            rightKneeGroup.add(rightLowerLeg);
+
+            const rightFoot = new THREE.Mesh(
+                new THREE.BoxGeometry(0.08, 0.05, 0.15),
+                shoeMaterial
+            );
+            rightFoot.position.set(0, -0.475, 0.03);
+            rightFoot.castShadow = true;
+            rightKneeGroup.add(rightFoot);
+
+            scene.add(character);
+        }
+
+        function updateAnimation(time) {
+            const t = time * 2;
+            
+            // Reset rotations
+            bodyParts.leftArmGroup.rotation.set(0, 0, 0);
+            bodyParts.rightArmGroup.rotation.set(0, 0, 0);
+            bodyParts.leftElbowGroup.rotation.set(0, 0, 0);
+            bodyParts.rightElbowGroup.rotation.set(0, 0, 0);
+            bodyParts.leftHipGroup.rotation.set(0, 0, 0);
+            bodyParts.rightHipGroup.rotation.set(0, 0, 0);
+            bodyParts.leftKneeGroup.rotation.set(0, 0, 0);
+            bodyParts.rightKneeGroup.rotation.set(0, 0, 0);
+            bodyParts.torso.rotation.set(0, 0, 0);
+            bodyParts.head.rotation.set(0, 0, 0);
+
+            switch(currentAnimation) {
+                case 'idle':
+                    animateIdle(t);
+                    break;
+                case 'walk':
+                    animateWalk(t);
+                    break;
+                case 'run':
+                    animateRun(t);
+                    break;
+                case 'jump':
+                    animateJump(t);
+                    break;
+                case 'sit':
+                    animateSit(t);
+                    break;
+                case 'sleep':
+                    animateSleep(t);
+                    break;
+                case 'dance':
+                    animateDance(t);
+                    break;
+            }
+        }
+
+        function animateIdle(t) {
+            const breathe = Math.sin(t * 0.5) * 0.02;
+            bodyParts.torso.position.y = 1.25 + breathe;
+            bodyParts.head.position.y = 1.65 + breathe;
+            
+            bodyParts.leftArmGroup.rotation.z = Math.sin(t * 0.3) * 0.05;
+            bodyParts.rightArmGroup.rotation.z = -Math.sin(t * 0.3) * 0.05;
+        }
+
+        function animateWalk(t) {
+            const legSwing = Math.sin(t) * 0.5;
+            const armSwing = Math.sin(t) * 0.4;
+            
+            // Hip rotation for leg swing
+            bodyParts.leftHipGroup.rotation.x = legSwing;
+            bodyParts.rightHipGroup.rotation.x = -legSwing;
+            
+            // Knee bend during walk
+            bodyParts.leftKneeGroup.rotation.x = Math.max(0, -legSwing * 0.8);
+            bodyParts.rightKneeGroup.rotation.x = Math.max(0, legSwing * 0.8);
+            
+            // Arm swing
+            bodyParts.leftArmGroup.rotation.x = -armSwing;
+            bodyParts.rightArmGroup.rotation.x = armSwing;
+            
+            const bob = Math.abs(Math.sin(t * 2)) * 0.05;
+            character.position.y = bob;
+            
+            character.position.z += Math.cos(t) * 0.01;
+        }
+
+        function animateRun(t) {
+            const legSwing = Math.sin(t * 1.5) * 0.8;
+            const armSwing = Math.sin(t * 1.5) * 0.7;
+            
+            // Hip rotation for running
+            bodyParts.leftHipGroup.rotation.x = legSwing;
+            bodyParts.rightHipGroup.rotation.x = -legSwing;
+            
+            // More pronounced knee bend when running
+            bodyParts.leftKneeGroup.rotation.x = Math.max(0, -legSwing * 1.2);
+            bodyParts.rightKneeGroup.rotation.x = Math.max(0, legSwing * 1.2);
+            
+            bodyParts.leftArmGroup.rotation.x = -armSwing * 1.2;
+            bodyParts.rightArmGroup.rotation.x = armSwing * 1.2;
+            
+            bodyParts.torso.rotation.x = 0.2;
+            
+            const bob = Math.abs(Math.sin(t * 3)) * 0.1;
+            character.position.y = bob;
+            
+            character.position.z += Math.cos(t * 1.5) * 0.02;
+        }
+
+        function animateJump(t) {
+            const jumpPhase = (t % (Math.PI * 2));
+            const jumpHeight = Math.max(0, Math.sin(jumpPhase)) * 1.5;
+            
+            character.position.y = jumpHeight;
+            
+            if (jumpHeight > 0.1) {
+                bodyParts.leftHipGroup.rotation.x = -0.3;
+                bodyParts.rightHipGroup.rotation.x = -0.3;
+                bodyParts.leftKneeGroup.rotation.x = 0.5;
+                bodyParts.rightKneeGroup.rotation.x = 0.5;
+                bodyParts.leftArmGroup.rotation.x = 0.5;
+                bodyParts.rightArmGroup.rotation.x = 0.5;
+            }
+        }
+
+        function animateSit(t) {
+            bodyParts.torso.position.y = 0.6;
+            bodyParts.head.position.y = 1.0;
+            
+            // Bend at hips
+            bodyParts.leftHipGroup.rotation.x = 1.5;
+            bodyParts.rightHipGroup.rotation.x = 1.5;
+            
+            // Bend at knees for sitting
+            bodyParts.leftKneeGroup.rotation.x = -1.5;
+            bodyParts.rightKneeGroup.rotation.x = -1.5;
+            
+            bodyParts.leftArmGroup.position.y = 0.85;
+            bodyParts.rightArmGroup.position.y = 0.85;
+            
+            bodyParts.leftArmGroup.rotation.x = 0.5;
+            bodyParts.rightArmGroup.rotation.x = 0.5;
+            
+            bodyParts.torso.rotation.x = Math.sin(t * 0.5) * 0.05;
+        }
+
+        function animateSleep(t) {
+            character.rotation.z = Math.PI / 2;
+            character.position.y = 0.2;
+            character.position.x = 0.5;
+            
+            bodyParts.leftHipGroup.rotation.x = 0.3;
+            bodyParts.rightHipGroup.rotation.x = 0.2;
+            bodyParts.leftArmGroup.rotation.x = -0.5;
+            bodyParts.rightArmGroup.rotation.x = 0.3;
+            bodyParts.leftArmGroup.rotation.z = -0.5;
+            
+            const breathe = Math.sin(t * 0.3) * 0.03;
+            bodyParts.torso.scale.z = 1 + breathe;
+            bodyParts.torso.scale.z = 0.6 * (1 + breathe);
+        }
+
+        function animateDance(t) {
+            // Funky dance moves!
+            const beat = Math.sin(t * 2);
+            const beat2 = Math.sin(t * 2 + Math.PI / 2);
+            
+            // Hip sway
+            bodyParts.torso.rotation.z = beat * 0.3;
+            bodyParts.torso.position.y = 1.25 + Math.abs(beat) * 0.1;
+            
+            // Head bob
+            bodyParts.head.rotation.z = -beat * 0.2;
+            bodyParts.head.position.y = 1.65 + Math.abs(beat2) * 0.05;
+            
+            // Arms up and moving
+            bodyParts.leftArmGroup.rotation.x = -1.5 + beat * 0.5;
+            bodyParts.rightArmGroup.rotation.x = -1.5 + beat2 * 0.5;
+            bodyParts.leftArmGroup.rotation.z = 0.3 + beat * 0.3;
+            bodyParts.rightArmGroup.rotation.z = -0.3 + beat2 * 0.3;
+            
+            bodyParts.leftElbowGroup.rotation.x = -0.5 + Math.abs(beat) * 0.5;
+            bodyParts.rightElbowGroup.rotation.x = -0.5 + Math.abs(beat2) * 0.5;
+            
+            // Leg movements
+            bodyParts.leftHipGroup.rotation.x = beat * 0.3;
+            bodyParts.rightHipGroup.rotation.x = beat2 * 0.3;
+            bodyParts.leftKneeGroup.rotation.x = Math.abs(beat) * 0.5;
+            bodyParts.rightKneeGroup.rotation.x = Math.abs(beat2) * 0.5;
+            
+            // Bounce
+            character.position.y = Math.abs(beat) * 0.15;
+            
+            // Spin slowly
+            character.rotation.y = t * 0.3;
+        }
+
+        function setAnimation(anim) {
+            currentAnimation = anim;
+            animationTime = 0;
+            
+            // Reset character position and rotation
+            character.position.set(0, 0, 0);
+            character.rotation.set(0, 0, 0);
+            
+            // Reset body part positions
+            bodyParts.torso.position.y = 1.25;
+            bodyParts.head.position.y = 1.65;
+            bodyParts.leftArmGroup.position.set(-0.22, 1.45, 0);
+            bodyParts.rightArmGroup.position.set(0.22, 1.45, 0);
+            bodyParts.torso.scale.set(1, 1, 1);
+            bodyParts.torso.scale.set(1, 1, 0.6);
+            
+            // Update UI
+            document.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+            const btnId = 'btn' + anim.charAt(0).toUpperCase() + anim.slice(1);
+            const btn = document.getElementById(btnId);
+            if (btn) btn.classList.add('active');
+            document.getElementById('currentAction').textContent = anim.charAt(0).toUpperCase() + anim.slice(1);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            animationTime += 0.016;
+            updateAnimation(animationTime);
+            
+            // Rotate camera slightly
+            const time = Date.now() * 0.0001;
+            camera.position.x = Math.sin(time) * 5;
+            camera.position.z = Math.cos(time) * 5;
+            camera.lookAt(0, 1, 0);
+            
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        init();
+    </script>
+</body>
+</html>
