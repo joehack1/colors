@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Android Simulator · live app icons</title>
+    <style>
+        /* Global reset & background */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
+        }
+
+        body {
+            background: linear-gradient(145deg, #2b3a4a 0%, #1d2a35 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 16px;
+        }
+
+        /* main simulator card – like a real phone */
+        .simulator {
+            width: 360px;
+            height: 700px;
+            background-color: #111111;
+            border-radius: 48px;
+            box-shadow: 
+                0 30px 50px -10px rgba(0,0,0,0.8),
+                0 0 0 10px #2c2c2c,
+                0 0 0 14px #3a3a3a;
+            overflow: hidden;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.2s ease;
+        }
+
+        .simulator:hover {
+            transform: scale(1.01);
+        }
+
+        /* subtle top speaker / sensor bar */
+        .status-bar {
+            background: #1a1a1a;
+            color: #eaeaea;
+            padding: 10px 20px 8px 20px;
+            display: flex;
+            justify-content: space-between;
+            font-size: 0.75rem;
+            font-weight: 500;
+            letter-spacing: 0.3px;
+            border-bottom: 1px solid #333;
+        }
+
+        .status-left {
+            display: flex;
+            gap: 4px;
+        }
+
+        .status-right {
+            display: flex;
+            gap: 6px;
+        }
+
+        .camera-notch {
+            width: 12px;
+            height: 12px;
+            background: #2a2a2a;
+            border-radius: 20px;
+            margin-right: 6px;
+            box-shadow: inset -1px -1px 3px #0a0a0a;
+        }
+
+        /* main android home screen wallpaper */
+        .screen {
+            flex: 1;
+            background: radial-gradient(circle at 20% 30%, #3b4d5e, #16222e);
+            background-image: 
+                linear-gradient(145deg, rgba(255, 255, 255, 0.03) 0%, transparent 30%),
+                repeating-linear-gradient(45deg, rgba(255,255,255,0.02) 0px, rgba(255,255,255,0.02) 2px, transparent 2px, transparent 8px);
+            display: flex;
+            flex-direction: column;
+            padding: 16px 12px 12px 12px;
+            position: relative;
+        }
+
+        /* google search bar widget (typical android) */
+        .search-widget {
+            background: rgba(255, 255, 255, 0.13);
+            backdrop-filter: blur(4px);
+            -webkit-backdrop-filter: blur(4px);
+            border-radius: 30px;
+            padding: 12px 18px;
+            margin-bottom: 24px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+        }
+
+        .g-icon {
+            background: conic-gradient(from 90deg at 50% 50%, #4285F4 0deg, #EA4335 90deg, #FBBC05 180deg, #34A853 270deg);
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+        }
+
+        .search-widget span {
+            opacity: 0.8;
+            font-size: 0.9rem;
+            letter-spacing: 0.2px;
+        }
+
+        .mic-icon {
+            margin-left: auto;
+            font-size: 1.2rem;
+        }
+
+        /* main apps grid — 4x4 typical android launcher */
+        .app-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px 8px;
+            margin: 8px 0 16px 0;
+        }
+
+        .app-icon {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            color: white;
+            font-size: 0.7rem;
+            text-shadow: 0 1px 3px black;
+            transition: transform 0.1s;
+            cursor: default;
+        }
+
+        .app-icon:hover {
+            transform: scale(1.05);
+            filter: brightness(1.2);
+        }
+
+        .icon-bg {
+            width: 52px;
+            height: 52px;
+            background: rgba(30, 30, 30, 0.7);
+            backdrop-filter: blur(2px);
+            border-radius: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0; /* hide fallback text if any */
+            box-shadow: 0 8px 12px rgba(0,0,0,0.4), inset 0 0 0 1px rgba(255,255,255,0.1);
+        }
+
+        .icon-bg img {
+            width: 42px;
+            height: 42px;
+            border-radius: 12px;
+            object-fit: cover;
+            display: block;
+        }
+
+        /* fallback: if image fails, we keep some background but it's fine */
+
+        /* favorite dock (bottom) */
+        .dock {
+            background: rgba(0, 0, 0, 0.45);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border-radius: 32px;
+            margin: 8px 4px 4px 4px;
+            padding: 8px 8px;
+            display: flex;
+            justify-content: space-around;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.5);
+        }
+
+        .dock .app-icon .icon-bg {
+            width: 48px;
+            height: 48px;
+            border-radius: 16px;
+        }
+
+        /* bottom navigation hint (gesture bar) */
+        .gesture-home {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 6px 0 4px;
+        }
+
+        .home-bar {
+            width: 130px;
+            height: 5px;
+            background: #e0e0e0;
+            border-radius: 30px;
+            box-shadow: 0 0 8px #ffffff90;
+        }
+
+        /* small clock / notification row */
+        .clock-row {
+            display: flex;
+            justify-content: space-between;
+            color: rgba(255,255,255,0.9);
+            font-weight: 500;
+            font-size: 0.75rem;
+            margin-bottom: 14px;
+            letter-spacing: 0.3px;
+            text-shadow: 0 1px 4px black;
+        }
+
+        .clock-row .left {
+            display: flex;
+            gap: 6px;
+        }
+
+        .battery-symbol {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        .battery-level {
+            width: 20px;
+            height: 10px;
+            background: #80deea;
+            border-radius: 2px;
+            position: relative;
+            border: 1px solid rgba(255,255,255,0.5);
+        }
+        .battery-level::after {
+            content: '';
+            position: absolute;
+            right: -3px;
+            top: 2px;
+            width: 2px;
+            height: 4px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 1px;
+        }
+
+        /* page indicator dots */
+        .page-dots {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin: 4px 0 6px;
+        }
+        .dot {
+            width: 6px;
+            height: 6px;
+            background: rgba(255,255,255,0.4);
+            border-radius: 10px;
+            transition: 0.1s;
+        }
+        .dot.active {
+            width: 18px;
+            background: white;
+            box-shadow: 0 0 6px cyan;
+        }
+
+        /* footer */
+        .powered-by {
+            text-align: center;
+            margin-top: 12px;
+            color: #a0b3c2;
+            font-size: 0.7rem;
+            font-weight: 400;
+            letter-spacing: 0.4px;
+            text-transform: uppercase;
+            opacity: 0.8;
+        }
+
+        /* left side volume rocker (simulated via pseudo) */
+        .simulator::before {
+            content: '';
+            position: absolute;
+            left: -4px;
+            top: 110px;
+            width: 4px;
+            height: 50px;
+            background: #2d2d2d;
+            border-radius: 4px 0 0 4px;
+            box-shadow: inset 1px 1px 3px #5a5a5a;
+        }
+
+        .simulator::after {
+            content: '';
+            position: absolute;
+            left: -4px;
+            top: 180px;
+            width: 4px;
+            height: 50px;
+            background: #2d2d2d;
+            border-radius: 4px 0 0 4px;
+            box-shadow: inset 1px 1px 3px #5a5a5a;
+        }
+
+        /* power button right side */
+        .power-sim {
+            position: absolute;
+            right: -4px;
+            top: 140px;
+            width: 4px;
+            height: 60px;
+            background: #3a3a3a;
+            border-radius: 0 4px 4px 0;
+            box-shadow: inset -1px 1px 3px #5a5a5a;
+        }
+
+        /* simple notification banner */
+        .notification-hint {
+            background: rgba(0,0,0,0.5);
+            backdrop-filter: blur(10px);
+            margin-bottom: 12px;
+            border-radius: 18px;
+            padding: 8px 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border-left: 3px solid #34b5e0;
+            color: white;
+            font-size: 0.75rem;
+            border: 1px solid rgba(255,255,255,0.15);
+        }
+
+        .notif-icon {
+            background: #34b5e0;
+            width: 26px;
+            height: 26px;
+            border-radius: 26px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1rem;
+        }
+
+        .notif-text {
+            opacity: 0.9;
+        }
+
+        .notif-time {
+            margin-left: auto;
+            font-size: 0.6rem;
+            opacity: 0.6;
+        }
+    </style>
+</head>
+<body>
+    <div class="simulator">
+
+        <!-- subtle top status line (hardware-like) -->
+        <div class="status-bar">
+            <div class="status-left">
+                <span class="camera-notch"></span>
+                <span>📶</span>
+            </div>
+            <div style="font-weight: 600;">14:25</div>
+            <div class="status-right">
+                <span>🔔</span>
+                <span>🔋 87%</span>
+            </div>
+        </div>
+
+        <!-- main android screen content -->
+        <div class="screen">
+            <!-- clock + status inside systemui (expanded) -->
+            <div class="clock-row">
+                <div class="left">
+                    <span>◉ live</span>
+                    <span>📶 5G</span>
+                </div>
+                <div class="battery-symbol">
+                    <span>🔒</span>
+                    <span class="battery-level"></span>
+                </div>
+            </div>
+
+            <!-- quick notification tile (always visible) -->
+            <div class="notification-hint">
+                <div class="notif-icon">📦</div>
+                <div class="notif-text">Android Sim · real icons</div>
+                <div class="notif-time">now</div>
+            </div>
+
+            <!-- Google search bar (pixel style) -->
+            <div class="search-widget">
+                <div class="g-icon"></div>
+                <span>Search apps & web</span>
+                <div class="mic-icon">🎤</div>
+            </div>
+
+            <!-- main app grid: first screen with actual web icons -->
+            <div class="app-grid">
+                <!-- Phone - Google Phone icon (using official brand icon) -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlephone.svg" alt="Phone" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/call-icon.png'; this.onerror=null;"></div>
+                    <span>Phone</span>
+                </div>
+                <!-- Messages - Google Messages -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlemessages.svg" alt="Messages" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/message-icon.png'; this.onerror=null;"></div>
+                    <span>Messages</span>
+                </div>
+                <!-- Chrome -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlechrome.svg" alt="Chrome" onerror="this.src='https://icons.iconarchive.com/icons/google/chrome/128/Google-Chrome-icon.png'; this.onerror=null;"></div>
+                    <span>Chrome</span>
+                </div>
+                <!-- Camera - Google Camera -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlecamera.svg" alt="Camera" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/photo-camera-icon.png'; this.onerror=null;"></div>
+                    <span>Camera</span>
+                </div>
+                <!-- Play Music -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googleplaymusic.svg" alt="Music" onerror="this.src='https://icons.iconarchive.com/icons/google/noto-emoji-activities/128/52770-musical-notes-icon.png'; this.onerror=null;"></div>
+                    <span>Music</span>
+                </div>
+                <!-- Gmail -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/gmail.svg" alt="Gmail" onerror="this.src='https://icons.iconarchive.com/icons/google/gmail/128/gmail-icon.png'; this.onerror=null;"></div>
+                    <span>Gmail</span>
+                </div>
+                <!-- YouTube -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/youtube.svg" alt="YouTube" onerror="this.src='https://icons.iconarchive.com/icons/google/youtube/128/YouTube-icon.png'; this.onerror=null;"></div>
+                    <span>YouTube</span>
+                </div>
+                <!-- Maps -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlemaps.svg" alt="Maps" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/map-icon.png'; this.onerror=null;"></div>
+                    <span>Maps</span>
+                </div>
+                <!-- Calendar -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlecalendar.svg" alt="Calendar" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/calendar-icon.png'; this.onerror=null;"></div>
+                    <span>Calendar</span>
+                </div>
+                <!-- Contacts -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlecontacts.svg" alt="Contacts" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/contacts-icon.png'; this.onerror=null;"></div>
+                    <span>Contacts</span>
+                </div>
+                <!-- Clock -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googleclock.svg" alt="Clock" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/alarm-icon.png'; this.onerror=null;"></div>
+                    <span>Clock</span>
+                </div>
+                <!-- Files (Google Files) -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlefiles.svg" alt="Files" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/folder-icon.png'; this.onerror=null;"></div>
+                    <span>Files</span>
+                </div>
+                <!-- Games (Stadia or generic) -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googleplaygames.svg" alt="Games" onerror="this.src='https://icons.iconarchive.com/icons/pictogrammers/material/128/controller-classic-icon.png'; this.onerror=null;"></div>
+                    <span>Games</span>
+                </div>
+                <!-- Settings -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlesettings.svg" alt="Settings" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/settings-icon.png'; this.onerror=null;"></div>
+                    <span>Settings</span>
+                </div>
+                <!-- Photos -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlephotos.svg" alt="Photos" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/photo-icon.png'; this.onerror=null;"></div>
+                    <span>Photos</span>
+                </div>
+                <!-- Play Store -->
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googleplay.svg" alt="Play Store" onerror="this.src='https://icons.iconarchive.com/icons/google/play/128/Google-Play-icon.png'; this.onerror=null;"></div>
+                    <span>Play Store</span>
+                </div>
+            </div>
+
+            <!-- page indicator (multiple home screens) -->
+            <div class="page-dots">
+                <span class="dot"></span>
+                <span class="dot active"></span>
+                <span class="dot"></span>
+                <span class="dot"></span>
+            </div>
+
+            <!-- dock / favorites (persistent) with actual icons -->
+            <div class="dock">
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlephone.svg" alt="Phone" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/call-icon.png'; this.onerror=null;"></div>
+                    <span>Phone</span>
+                </div>
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlemessages.svg" alt="Chat" onerror="this.src='https://icons.iconarchive.com/icons/google/material-icons/128/message-icon.png'; this.onerror=null;"></div>
+                    <span>Chat</span>
+                </div>
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googlechrome.svg" alt="Browser" onerror="this.src='https://icons.iconarchive.com/icons/google/chrome/128/Google-Chrome-icon.png'; this.onerror=null;"></div>
+                    <span>Browser</span>
+                </div>
+                <div class="app-icon">
+                    <div class="icon-bg"><img src="https://cdn.jsdelivr.net/gh/simple-icons/simple-icons/icons/googleplay.svg" alt="Play" onerror="this.src='https://icons.iconarchive.com/icons/google/play/128/Google-Play-icon.png'; this.onerror=null;"></div>
+                    <span>Play</span>
+                </div>
+            </div>
+
+            <!-- android navigation hint (gesture pill) -->
+            <div class="gesture-home">
+                <div class="home-bar"></div>
+            </div>
+
+            <div class="powered-by">Android 14 · live icons</div>
+        </div> <!-- end screen -->
+
+        <!-- hidden hardware buttons (just visuals) -->
+        <div class="power-sim"></div>
+    </div> <!-- end simulator -->
+
+    <!-- small caption (optional) -->
+    <div style="position: fixed; bottom: 8px; right: 16px; color: #99aabb; font-size: 0.6rem; background: #1e2b33; padding: 4px 12px; border-radius: 40px; opacity: 0.7;">
+        HTML/CSS Android · real app icons
+    </div>
+</body>
+</html>
